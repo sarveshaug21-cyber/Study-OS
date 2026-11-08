@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { PracticeBrowser } from "@/components/practice-browser";
 import { practiceQuestions } from "@/lib/demo-data";
+import { PracticeForm } from "@/components/data-panels";
 
 export const metadata: Metadata = {
   title: "Practice Questions",
@@ -122,6 +123,7 @@ export default function PracticePage() {
           ))}
         </div>
       </section>
+      <PracticeForm />
     </div>
   );
 }

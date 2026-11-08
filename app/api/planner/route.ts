@@ -1,0 +1,8 @@
+import { getDb } from "@/db";
+import { plannerTasks } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { withUser, json, requireString } from "@/lib/api-helpers";
+const STATUSES = ["todo","in_progress","done"] as const; const PRIORITIES = ["low","medium","high"] as const;
+export async function GET() { return withUser(async (userId) => { const rows = await getDb().select().from(plannerTasks).where(eq(plannerTasks.userId, userId)); return json({ tasks: rows }); }); }
+export async function POST(req: Request) { return withUser(async (userId) => { const body = await req.json().catch(()=>({})); const status = body.status ?? "todo"; const priority = body.priority ?? "medium"; if (!STATUSES.includes(status)) throw new Error("Invalid status"); if (!PRIORITIES.includes(priority)) throw new Error("Invalid priority"); if (!body.scheduledFor) throw new Error("scheduledFor is required"); const rows = await getDb().insert(plannerTasks).values({ userId, subjectId: body.subjectId, title: requireString(body,"title"), scheduledFor: new Date(body.scheduledFor), status, priority, estimatedMinutes: typeof body.estimatedMinutes === "number" ? body.estimatedMinutes : 30 }).returning(); return json({ task: rows[0] }, 201); }); }
+export async function PATCH(req: Request) { return withUser(async (userId) => { const body = await req.json().catch(()=>({})); const id = requireString(body,"id"); const rows = await getDb().update(plannerTasks).set({ status: body.status, updatedAt: new Date() }).where(and(eq(plannerTasks.id, id), eq(plannerTasks.userId, userId))).returning(); if (!rows.length) return json({error:"Not found"},404); return json({ task: rows[0] }); }); }

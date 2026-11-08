@@ -413,3 +413,148 @@ export const pastPapersRelations = relations(pastPapers, ({ one }) => ({
     references: [subjects.id],
   }),
 }));
+
+// ── Phase 2/4 additions ──
+export const questionTypeEnum = pgEnum("question_type", ["multiple_choice","short_answer","long_answer"]);
+export const questionSourceEnum = pgEnum("question_source", ["official","generated","user_created"]);
+export const aiRoleEnum = pgEnum("ai_role", ["user","assistant","system"]);
+export const specUpdateStatusEnum = pgEnum("spec_update_status", ["confirmed","proposed","unverified"]);
+
+export const examBoards = pgTable("exam_boards", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  officialUrl: text("official_url"),
+  ...timestamps,
+});
+
+export const qualifications = pgTable("qualifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  level: qualificationLevelEnum("level").notNull(),
+  officialUrl: text("official_url"),
+  ...timestamps,
+});
+
+export const specifications = pgTable("specifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  boardId: uuid("board_id").references(() => examBoards.id, { onDelete: "cascade" }),
+  qualificationId: uuid("qualification_id").references(() => qualifications.id, { onDelete: "cascade" }),
+  board: examBoardEnum("board"),
+  level: qualificationLevelEnum("level"),
+  subjectName: text("subject_name").notNull(),
+  subjectCode: text("subject_code"),
+  title: text("title").notNull(),
+  officialUrl: text("official_url"),
+  verified: boolean("verified").notNull().default(false),
+  version: text("version"),
+  ...timestamps,
+});
+
+export const topics = pgTable("topics", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  specificationId: uuid("specification_id").references(() => specifications.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  subjectId: uuid("subject_id").references(() => subjects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isOfficial: boolean("is_official").notNull().default(false),
+  ...timestamps,
+});
+
+export const topicProgress = pgTable("topic_progress", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  topicId: uuid("topic_id").notNull().references(() => topics.id, { onDelete: "cascade" }),
+  completed: boolean("completed").notNull().default(false),
+  mastery: integer("mastery").notNull().default(0),
+  ...timestamps,
+}, (t) => ({ uniq: uniqueIndex("topic_progress_user_topic_idx").on(t.userId, t.topicId) }));
+
+export const bookmarks = pgTable("bookmarks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  noteId: uuid("note_id").references(() => notes.id, { onDelete: "cascade" }),
+  topicId: uuid("topic_id").references(() => topics.id, { onDelete: "cascade" }),
+  ...timestamps,
+});
+
+export const studySessions = pgTable("study_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subjectId: uuid("subject_id").references(() => subjects.id, { onDelete: "set null" }),
+  topicId: uuid("topic_id").references(() => topics.id, { onDelete: "set null" }),
+  minutes: integer("minutes").notNull(),
+  focus: text("focus"),
+  notes: text("notes"),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  ...timestamps,
+});
+
+export const flashcardReviews = pgTable("flashcard_reviews", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  flashcardId: uuid("flashcard_id").notNull().references(() => flashcards.id, { onDelete: "cascade" }),
+  correct: boolean("correct").notNull(),
+  intervalDays: integer("interval_days").notNull().default(1),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const aiConversations = pgTable("ai_conversations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subjectId: uuid("subject_id").references(() => subjects.id, { onDelete: "set null" }),
+  title: text("title"),
+  provider: text("provider"),
+  model: text("model"),
+  ...timestamps,
+});
+
+export const aiMessages = pgTable("ai_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversationId: uuid("conversation_id").notNull().references(() => aiConversations.id, { onDelete: "cascade" }),
+  role: aiRoleEnum("role").notNull(),
+  content: text("content").notNull(),
+  generated: boolean("generated").notNull().default(true),
+  ...timestamps,
+});
+
+export const userSettings = pgTable("user_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  theme: text("theme").notNull().default("light"),
+  dailyGoalMinutes: integer("daily_goal_minutes").notNull().default(60),
+  weekStartDay: text("week_start_day").notNull().default("Monday"),
+  targetGrade: text("target_grade"),
+  aiProvider: text("ai_provider"),
+  aiModel: text("ai_model"),
+  notificationsJson: text("notifications_json"),
+  expand_specifications: boolean("expand_specifications").notNull().default(false),
+  ...timestamps,
+});
+
+export const specUpdates = pgTable("spec_updates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  board: examBoardEnum("board").notNull(),
+  level: qualificationLevelEnum("level"),
+  subjectName: text("subject_name"),
+  title: text("title").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  status: specUpdateStatusEnum("status").notNull().default("unverified"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  checkedAt: timestamp("checked_at", { withTimezone: true }).defaultNow().notNull(),
+  summary: text("summary"),
+  ...timestamps,
+});
+
+export const pastPaperCompletions = pgTable("past_paper_completions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  pastPaperId: uuid("past_paper_id").notNull().references(() => pastPapers.id, { onDelete: "cascade" }),
+  score: integer("score"),
+  completedAt: timestamp("completed_at", { withTimezone: true }).defaultNow().notNull(),
+  personalNotes: text("personal_notes"),
+  ...timestamps,
+});

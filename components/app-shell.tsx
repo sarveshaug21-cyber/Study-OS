@@ -7,13 +7,14 @@ import {
   Bell,
   ChevronRight,
   Menu,
-  Search,
   Sparkles,
   X,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Avatar } from "@/components/ui";
 import { demoUser } from "@/lib/demo-data";
+import { SearchBar } from "@/components/search-bar";
+import { isDemoMode } from "@/lib/env";
 import { getNavItem, navSections } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +96,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="relative shrink-0 border-t border-white/10 p-3">
         <div className="mb-2 flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[0.7rem] text-slate-400">
           <Sparkles aria-hidden="true" size={13} className="text-brand-300" />
-          <span>Demo workspace · static data</span>
+          {isDemoMode() ? "Demo workspace · static data" : "Connected workspace"}
         </div>
         <Link
           href="/settings"
@@ -125,7 +126,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const searchRef = useRef<HTMLInputElement>(null);
   const mobilePanelRef = useRef<HTMLDivElement>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const current = getNavItem(pathname);
@@ -154,17 +154,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [mobileOpen]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
 
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
 
   return (
     <div className="min-h-dvh">
@@ -240,23 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="ml-auto flex items-center gap-2">
-              <div className="relative hidden md:block">
-                <Search
-                  aria-hidden="true"
-                  size={16}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  ref={searchRef}
-                  type="search"
-                  placeholder="Search subjects, notes, papers…"
-                  aria-label="Search subjects, notes and papers"
-                  className="h-10 w-64 rounded-xl border border-slate-200 bg-white pl-9 pr-16 text-sm shadow-sm transition placeholder:text-slate-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 xl:w-80"
-                />
-                <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[0.65rem] font-medium text-slate-500">
-                  ⌘K
-                </kbd>
-              </div>
+              <SearchBar />
 
               <button
                 type="button"

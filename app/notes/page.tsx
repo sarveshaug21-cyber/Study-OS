@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { NotesWorkspace } from "@/components/notes-workspace";
 import { notes } from "@/lib/demo-data";
+import { NoteForm } from "@/components/data-panels";
 
 export const metadata: Metadata = {
   title: "Notes",
@@ -69,6 +70,7 @@ export default function NotesPage() {
       </section>
 
       <NotesWorkspace />
+      <NoteForm />
     </div>
   );
 }

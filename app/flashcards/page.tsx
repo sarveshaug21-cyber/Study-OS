@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard, ProgressBar, Badge } from "@/components/ui";
 import { FlashcardStudy } from "@/components/flashcard-study";
 import { flashcardDecks } from "@/lib/demo-data";
+import { DeckForm, CardForm } from "@/components/data-panels";
 
 export const metadata: Metadata = {
   title: "Flashcards",
@@ -198,6 +199,8 @@ export default function FlashcardsPage() {
           ))}
         </div>
       </section>
+      <DeckForm />
+      <CardForm />
     </div>
   );
 }

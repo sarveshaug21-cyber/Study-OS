@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
+  Library,
   CalendarDays,
   CircleHelp,
   FileText,
@@ -44,6 +45,12 @@ export const navSections: NavSection[] = [
         label: "Subjects",
         icon: BookOpen,
         description: "Courses and progress",
+      },
+      {
+        href: "/specifications",
+        label: "Specifications",
+        icon: Library,
+        description: "Boards and specs",
       },
       {
         href: "/notes",

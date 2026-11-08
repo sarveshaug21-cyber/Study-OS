@@ -1,84 +1,60 @@
 # Study OS
 
-A polished, responsive study workspace demo for students preparing for **GCSE**, **International GCSE**, **A-level** and **International A-level** across **AQA**, **Pearson Edexcel**, **OCR**, **WJEC**, **Eduqas** and **CCEA**.
+A polished, responsive study workspace for **GCSE**, **International GCSE**, **A-level** and **International A-level** across **AQA**, **Pearson Edexcel**, **OCR**, **WJEC**, **Eduqas** and **CCEA**.
 
-The app uses realistic static demo data. It does not require a database, network access or credentials to build or run, and the temporary workspace contains no user data.
+Demo mode works with no database or credentials. With Supabase configured, the same UI persists data per-user.
 
 ## Stack
+- Next.js App Router + TypeScript, Tailwind CSS, Lucide icons
+- Drizzle ORM + PostgreSQL (Supabase), `@supabase/ssr` auth
 
-- Next.js App Router + TypeScript
-- Tailwind CSS
-- Drizzle ORM with PostgreSQL (Supabase-compatible)
-- Lucide icons
-
-## Screens
-
-- Dashboard
-- Subjects
-- Notes
-- Flashcards
-- Practice Questions
-- Past Papers
-- AI Tutor (simulated, browser-only responses)
-- Planner
-- Progress
-- Settings
-
-Interactive demo behaviour includes subject, note, question and past-paper filtering, flashcard review, answer reveals, planner task completion and adding a study block, a simulated AI chat, and local-only settings.
-
-## Getting started
-
+## Quick start (demo)
 ```bash
 npm install
-npm run dev
+npm run dev   # http://localhost:3000
 ```
 
-Open <http://localhost:3000>.
-
-## Environment
-
-Copy `.env.example` to `.env.local` and fill in values from your own Supabase project when you are ready to connect a database:
-
+## Production checks
 ```bash
-cp .env.example .env.local
+npm run lint
+npm run typecheck
+npm run build
 ```
 
-Next.js loads `.env.local` automatically. Drizzle Kit does not read `.env.local` by default, so export `DATABASE_URL` in your shell or copy the value into `.env` before running database scripts.
-
-Placeholder variable names:
-
-- `DATABASE_URL` — Supabase PostgreSQL connection string, preferably the transaction pooler URL.
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL.
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anonymous/public key.
-- `SUPABASE_SERVICE_ROLE_KEY` — server-only service role key. Never expose this in client code.
-
-The demo UI does not read these values. The database client is lazy and only created when `getDb()` is called, so production builds work with no credentials configured.
-
-## Supabase + Drizzle
-
+## Supabase setup
 1. Create a Supabase project.
-2. Copy the PostgreSQL connection string into `DATABASE_URL`. Use the pooler connection for serverless deployments.
-3. Review `db/schema.ts`. It defines users, subjects, notes, flashcard decks and cards, practice questions and attempts, planner tasks, progress records and past papers, with PostgreSQL enums for exam boards, qualification levels, difficulty, task status and priority.
-4. Generate SQL with `npm run db:generate`.
-5. Apply it with `npm run db:push` or `npm run db:migrate` once you have a real project and are ready to manage schema changes.
-6. Enable Row Level Security on every user-owned table and add policies that scope rows to `auth.uid()`. Keep the service role key server-side only.
+2. Copy `.env.example` → `.env.local` and fill values (never commit `.env.local`).
+3. `npm run db:generate` (review `db/migrations/`), then `npm run db:push` or `db:migrate`.
+4. Apply `db/rls.sql` in Supabase SQL editor (RLS per user via `auth.uid()`).
+5. Sign up at `/auth/signup`. `SUPABASE_SERVICE_ROLE_KEY` is server-only — never import it in client code.
 
-No migrations, seeds or database connections are run by this demo.
+## 12-phase status
+| Phase | Status |
+|---|---|
+| 1 Auth | Implemented (SSR browser/server clients, login/signup/logout/reset/update, middleware protection, profile + settings bootstrap). Demo fallback works. |
+| 2 Database/RLS | 23-table Drizzle schema + generated migration + `db/rls.sql`. Migration reviewed; not applied to any live DB. |
+| 3 Persistence | REST APIs + forms for subjects, notes, decks/cards, practice, planner, sessions, progress, settings, topics, past-paper completions. Loading/success/error/empty states. |
+| 4 Spec system | Catalogue of 6 boards × 4 qualifications, `/specifications`, official URLs, verified/unverified flags. No invented syllabus. |
+| 5 Subject workspace | `/subjects/[id]` with specification checklist, topic completion, links to notes/cards/practice/papers/AI. |
+| 6 Notes & flashcards | Markdown notes, deck/card CRUD APIs, spaced-repetition scheduling + review history. |
+| 7 Practice | Question create/attempt APIs; source labels (official/generated/user-created). |
+| 8 Past papers | Library + official-source panel (links, no scraping/copying), completion tracking API. |
+| 9 AI tutor | `/api/ai` provider abstraction: Open Notebook (default) or OpenRouter via env. Chat persists conversations/messages; canned fallback only in demo. |
+| 10 Planner & analytics | Planner APIs + session logging; `/api/progress` analytics shown via `RealAnalytics`. |
+| 11 Search/settings/updates | Global `/api/search` + header search (⌘K), settings API, manual spec-update monitoring API + panel (no fake cron). |
+| 12 Readiness | lint/typecheck/build verified; see remaining manual steps below. |
 
-## Scripts
+## AI configuration
+Server-only env: `AI_PROVIDER`, `OPEN_NOTEBOOK_URL`, `OPEN_NOTEBOOK_API_URL`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_BASE_URL`. Chat is clearly labelled as AI-generated; failures show an error and fall back to demo replies only when Supabase/AI is unconfigured.
 
-```bash
-npm run dev         # development server
-npm run build       # production build (no database required)
-npm run start       # serve the production build
-npm run lint        # ESLint
-npm run typecheck   # TypeScript check
-npm run db:generate # generate Drizzle migrations
-npm run db:migrate  # apply migrations
-npm run db:push     # push schema to a database
-npm run db:studio   # open Drizzle Studio
-```
+## Security
+- `.env.local` is git-ignored; `.env.example` has placeholders only.
+- Service-role key is only imported in `lib/supabase/admin.ts`.
+- RLS policies scope every user table to `auth.uid()`.
+- No secrets in repository history (`git ls-files` shows no `.env*` besides `.env.example`).
 
-## Data notice
-
-All names, grades, notes, questions, papers and progress figures are fictional demo content. No user data is stored in this workspace, and the sample AI tutor replies are hard-coded in the client.
+## Remaining manual steps before production
+- Create Supabase project, set `.env.local`, apply migrations + RLS, confirm signup/login end-to-end.
+- Verify Open Notebook/OpenRouter connectivity (`/api/ai`); do not claim AI is connected until tested.
+- Import official specification topics per board (currently personal/unverified flags only).
+- Schedule monthly spec-update checks (e.g., Vercel Cron / GitHub Action) — none is running by default.

@@ -11,6 +11,8 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { PastPapersBrowser } from "@/components/past-papers-browser";
 import { EXAM_BOARDS, QUALIFICATION_LEVELS, pastPapers } from "@/lib/demo-data";
+import { PastPaperLinks } from "@/components/past-paper-actions";
+import { pastPapers as _papers } from "@/lib/demo-data";
 
 export const metadata: Metadata = {
   title: "Past Papers",
@@ -85,6 +87,7 @@ export default function PastPapersPage() {
           signed URLs and row-level access policies.
         </p>
       </section>
+      <PastPaperLinks papers={_papers.map((x) => ({ id: x.id, paperCode: x.paperCode, title: x.title }))} />
     </div>
   );
 }

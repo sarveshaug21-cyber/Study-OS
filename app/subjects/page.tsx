@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { SubjectsBrowser } from "@/components/subjects-browser";
 import { subjects } from "@/lib/demo-data";
+import { SubjectForm } from "@/components/data-panels";
 
 export const metadata: Metadata = {
   title: "Subjects",
@@ -77,6 +78,7 @@ export default function SubjectsPage() {
       </section>
 
       <SubjectsBrowser />
+      <SubjectForm />
     </div>
   );
 }

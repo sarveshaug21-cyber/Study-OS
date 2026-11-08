@@ -1,0 +1,6 @@
+import { getDb } from "@/db";
+import { practiceQuestions, practiceAttempts } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { withUser, json, requireString, requireUuid } from "@/lib/api-helpers";
+export async function GET() { return withUser(async (userId) => { const questions = await getDb().select().from(practiceQuestions).where(eq(practiceQuestions.userId, userId)); const attempts = await getDb().select().from(practiceAttempts).where(eq(practiceAttempts.userId, userId)); return json({ practiceQuestions: questions, attempts }); }); }
+export async function POST(req: Request) { return withUser(async (userId) => { const body = await req.json().catch(()=>({})); if (body.attempt) { const qid = requireUuid(body.attempt,"questionId"); const rows = await getDb().insert(practiceAttempts).values({ userId, questionId: qid, answer: body.attempt.answer, score: body.attempt.score, marksAvailable: body.attempt.marksAvailable }).returning(); return json({ attempt: rows[0] }, 201); } const rows = await getDb().insert(practiceQuestions).values({ userId, subjectId: requireUuid(body,"subjectId"), question: requireString(body,"question"), modelAnswer: requireString(body,"modelAnswer"), marks: typeof body.marks === "number" ? body.marks : 1, markScheme: body.markScheme }).returning(); return json({ question: rows[0] }, 201); }); }

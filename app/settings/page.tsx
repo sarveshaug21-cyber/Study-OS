@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "@/components/settings-form";
+import { SpecUpdatesPanel } from "@/components/spec-updates-panel";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -33,6 +34,7 @@ export default function SettingsPage() {
       </div>
 
       <SettingsForm />
+      <SpecUpdatesPanel />
     </div>
   );
 }

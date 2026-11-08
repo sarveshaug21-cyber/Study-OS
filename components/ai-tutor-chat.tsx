@@ -106,18 +106,10 @@ export function AiTutorChat() {
     setMessages((current) => [...current, userMessage]);
     setInput("");
     setThinking(true);
-
-    timerRef.current = setTimeout(() => {
-      setMessages((current) => [
-        ...current,
-        {
-          id: nextId.current++,
-          role: "assistant",
-          content: createReply(content),
-        },
-      ]);
-      setThinking(false);
-    }, 750);
+    const doReply = async () => {
+      try { const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: content }) }); if (!res.ok) throw new Error("AI unavailable"); const data = (await res.json()) as { reply?: string }; if (!data.reply) throw new Error("No reply"); return data.reply; } catch { return createReply(content); }
+    };
+    timerRef.current = setTimeout(() => { void doReply().then((reply) => { setMessages((current) => [...current, { id: nextId.current++, role: "assistant", content: reply }]); setThinking(false); }); }, 750);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {

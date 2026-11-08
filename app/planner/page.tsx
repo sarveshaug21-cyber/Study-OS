@@ -16,6 +16,7 @@ import {
   plannerTasks,
   subjects,
 } from "@/lib/demo-data";
+import { PlannerForm, SessionForm } from "@/components/data-panels";
 
 export const metadata: Metadata = {
   title: "Planner",
@@ -188,6 +189,8 @@ export default function PlannerPage() {
           </div>
         </section>
       </div>
+      <PlannerForm />
+      <SessionForm />
     </div>
   );
 }

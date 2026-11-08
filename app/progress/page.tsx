@@ -21,6 +21,7 @@ import {
   subjects,
   subjectGradeRows,
 } from "@/lib/demo-data";
+import { RealAnalytics } from "@/components/real-analytics";
 
 export const metadata: Metadata = {
   title: "Progress",
@@ -330,6 +331,7 @@ export default function ProgressPage() {
           </Link>
         </section>
       </div>
+      <RealAnalytics />
     </div>
   );
 }
