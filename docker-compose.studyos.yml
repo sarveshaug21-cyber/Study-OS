@@ -1,0 +1,27 @@
+services:
+  studyos:
+    build: .
+    container_name: study-os
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OPEN_NOTEBOOK_API_URL=http://host.docker.internal:5055
+      - OPEN_NOTEBOOK_URL=http://host.docker.internal:8502
+      # Demo mode: leave Supabase variables unset until .env.local is provided.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

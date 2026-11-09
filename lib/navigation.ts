@@ -53,6 +53,12 @@ export const navSections: NavSection[] = [
         description: "Boards and specs",
       },
       {
+        href: "/research",
+        label: "Research",
+        icon: Library,
+        description: "Open Notebook powered research",
+      },
+      {
         href: "/notes",
         label: "Notes",
         icon: NotebookPen,
