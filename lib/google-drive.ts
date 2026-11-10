@@ -12,20 +12,23 @@ function env(name: string): string | undefined {
 }
 
 export function googleConfigured(): boolean {
-  return Boolean(env("GOOGLE_CLIENT_ID") && env("GOOGLE_CLIENT_SECRET") && env("GOOGLE_REDIRECT_URI"));
+  return Boolean(env("GOOGLE_CLIENT_ID") && env("GOOGLE_CLIENT_SECRET") && env("GOOGLE_REDIRECT_URI") && env("GOOGLE_TOKEN_ENCRYPTION_KEY"));
 }
 
-export function encryptionKey(): Buffer | null {
+export function encryptionKey(): Buffer {
   const k = env("GOOGLE_TOKEN_ENCRYPTION_KEY");
-  if (!k) return null;
-  // Accept 32-byte hex or any string (hashed to 32 bytes).
+  if (!k) throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY is not configured (server-only). Generate with: openssl rand -hex 32");
+  // Accept exactly 32 bytes: hex (64 chars) or base64 (44 chars -> 32 bytes).
   if (/^[0-9a-f]{64}$/i.test(k)) return Buffer.from(k, "hex");
-  return createHash("sha256").update(k).digest();
+  try {
+    const b = Buffer.from(k, "base64");
+    if (b.length === 32) return b;
+  } catch { /* fall through */ }
+  throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY must decode to exactly 32 bytes (use `openssl rand -hex 32` or `openssl rand -base64 32`).");
 }
 
 export function encryptToken(plain: string): string {
   const key = encryptionKey();
-  if (!key) throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY is not configured (server-only).");
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
@@ -35,7 +38,6 @@ export function encryptToken(plain: string): string {
 
 export function decryptToken(blob: string): string {
   const key = encryptionKey();
-  if (!key) throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY is not configured (server-only).");
   const buf = Buffer.from(blob, "base64");
   const iv = buf.subarray(0, 12);
   const tag = buf.subarray(12, 28);

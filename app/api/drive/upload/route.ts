@@ -13,7 +13,6 @@ export async function POST(req: Request) {
     const qualification = (form.get("qualification") as string) || undefined;
     const subject = (form.get("subject") as string) || undefined;
     if (!(file instanceof File)) return json({ error: "file is required" }, 400);
-    if (file.size > 25 * 1024 * 1024) return json({ error: "File too large (max 25 MB for this endpoint)" }, 413);
     const buf = Buffer.from(await file.arrayBuffer());
     const uploaded = await uploadFile(accessToken, parentId, { name: file.name, type: file.type, data: buf });
     await upsertFileMeta(userId, { id: uploaded.id, name: uploaded.name, mimeType: uploaded.mimeType, size: uploaded.size, parentId, board, qualification, subject, importedAt: new Date().toISOString() });

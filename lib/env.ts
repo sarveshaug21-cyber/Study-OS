@@ -7,6 +7,7 @@ const lang = {
     if (!this.supabaseConfigured()) throw new Error("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
   },
   googleDriveConfigured() { return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REDIRECT_URI && process.env.GOOGLE_TOKEN_ENCRYPTION_KEY); },
+  googlePickerConfigured() { return Boolean(process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY); },
   aiConfig() {
     return {
       provider: process.env.AI_PROVIDER ?? "open-notebook",

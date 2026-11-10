@@ -26,6 +26,49 @@ export function CloudFiles() {
     try { const d = await api<{ quota: { limit?: string; usage?: string } }>("/api/drive/quota"); setQuota(d.quota); } catch {}
   }
   useEffect(() => { load(); loadQuota(); }, []);
+  // Google Picker flow: after OAuth, ?pick=1 lets the user select the existing "Study OS" folder.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("pick") !== "1") return;
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+    if (!apiKey) { setError("Google Picker API key is not configured (NEXT_PUBLIC_GOOGLE_API_KEY)."); return; }
+    let cancelled = false;
+    async function openPicker() {
+      try {
+        const tok = await api<{ accessToken: string }>("/api/drive/token");
+        // load gapi picker
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://apis.google.com/js/api.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load Google API script"));
+          document.head.appendChild(s);
+        });
+        await new Promise<void>((resolve) => { (window as any).gapi.load("picker", () => resolve()); });
+        if (cancelled) return;
+        const view = new (window as any).google.picker.DocsView((window as any).google.picker.ViewId.FOLDERS);
+        view.setSelectFolderEnabled(true);
+        const picker = new (window as any).google.picker.PickerBuilder()
+          .addView(view)
+          .setOAuthToken(tok.accessToken)
+          .setDeveloperKey(apiKey)
+          .setCallback(async (data: any) => {
+            if (data.action === (window as any).google.picker.Action.PICKED) {
+              const folder = data.docs[0];
+              try {
+                await api("/api/drive/select-folder", { method: "POST", body: JSON.stringify({ folderId: folder.id }) });
+                window.history.replaceState({}, "", "/cloud-files");
+                await load(folder.id);
+              } catch (e) { setError(e instanceof Error ? e.message : "Failed to save folder"); }
+            }
+          })
+          .build();
+        picker.setVisible(true);
+      } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : "Picker failed"); }
+    }
+    void openPicker();
+    return () => { cancelled = true; };
+  }, []);
 
   async function connect() { window.location.href = "/api/drive/connect"; }
   async function disconnect() { try { await api("/api/drive/disconnect", { method: "POST" }); setFiles([]); setConnected(false); } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } }
@@ -33,9 +76,20 @@ export function CloudFiles() {
     const f = e.target.files?.[0]; if (!f) return;
     setBusy(true); setError(null);
     try {
-      const fd = new FormData(); fd.append("file", f); fd.append("parentId", parentId || folderId || "");
-      await fetch("/api/drive/upload", { method: "POST", body: fd });
-      await load(parentId || folderId || undefined);
+      const pid = parentId || folderId || "";
+      if (f.size <= 5 * 1024 * 1024) {
+        const fd = new FormData(); fd.append("file", f); fd.append("parentId", pid);
+        const r = await fetch("/api/drive/upload", { method: "POST", body: fd });
+        if (!r.ok) throw new Error("Upload failed");
+      } else {
+        // Resumable upload for larger files.
+        const init = await api<{ uploadUrl: string; parentId: string; name: string; mimeType: string }>("/api/drive/upload/init", { method: "POST", body: JSON.stringify({ name: f.name, mimeType: f.type, size: f.size, parentId: pid }) });
+        const put = await fetch(init.uploadUrl, { method: "PUT", headers: { "Content-Type": f.type || "application/octet-stream", "Content-Length": String(f.size) }, body: f });
+        if (!put.ok) throw new Error(`Resumable upload failed (${put.status})`);
+        const meta = await put.json().catch(() => ({}));
+        await api("/api/drive/upload/complete", { method: "POST", body: JSON.stringify({ fileId: meta.id, name: f.name, mimeType: f.type, size: f.size, parentId: pid }) });
+      }
+      await load(pid || undefined);
     } catch (err) { setError(err instanceof Error ? err.message : "Upload failed"); }
     finally { setBusy(false); e.target.value = ""; }
   }
