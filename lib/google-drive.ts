@@ -1,5 +1,6 @@
 import "server-only";
-import { createHash, createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { validateAndDeriveKey } from "@/lib/google-drive-key";
 
 const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -16,15 +17,7 @@ export function googleConfigured(): boolean {
 }
 
 export function encryptionKey(): Buffer {
-  const k = env("GOOGLE_TOKEN_ENCRYPTION_KEY");
-  if (!k) throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY is not configured (server-only). Generate with: openssl rand -hex 32");
-  // Accept exactly 32 bytes: hex (64 chars) or base64 (44 chars -> 32 bytes).
-  if (/^[0-9a-f]{64}$/i.test(k)) return Buffer.from(k, "hex");
-  try {
-    const b = Buffer.from(k, "base64");
-    if (b.length === 32) return b;
-  } catch { /* fall through */ }
-  throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY must decode to exactly 32 bytes (use `openssl rand -hex 32` or `openssl rand -base64 32`).");
+  return validateAndDeriveKey(process.env.GOOGLE_TOKEN_ENCRYPTION_KEY);
 }
 
 export function encryptToken(plain: string): string {
@@ -77,7 +70,7 @@ export async function exchangeCode(code: string): Promise<{ accessToken: string;
   return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiresIn: number }> {
+export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiresIn: number; refreshToken?: string }> {
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -89,8 +82,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
     }).toString(),
   });
   if (!res.ok) throw new Error(`Google token refresh failed (${res.status}).`);
-  const data = (await res.json()) as { access_token: string; expires_in: number };
-  return { accessToken: data.access_token, expiresIn: data.expires_in };
+  const data = (await res.json()) as { access_token: string; expires_in: number; refresh_token?: string };
+  return { accessToken: data.access_token, expiresIn: data.expires_in, refreshToken: data.refresh_token };
 }
 
 async function driveFetch(accessToken: string, path: string, init?: RequestInit): Promise<Response> {
@@ -105,6 +98,41 @@ export async function findFolder(accessToken: string, name: string, parentId?: s
   if (!res.ok) throw new Error(`Drive list failed (${res.status}).`);
   const data = (await res.json()) as { files?: DriveFile[] };
   return data.files?.[0] ?? null;
+}
+
+export async function getMetadata(accessToken: string, fileId: string): Promise<DriveFile & { parents?: string[] }> {
+  const res = await driveFetch(accessToken, `/files/${fileId}?fields=id,name,mimeType,parents`);
+  if (!res.ok) throw new Error(`Drive metadata failed (${res.status}).`);
+  return (await res.json()) as DriveFile & { parents?: string[] };
+}
+
+// Verify a folder is accessible, is a folder, and (optionally) has the expected name.
+export async function verifyFolder(accessToken: string, folderId: string, expectedName?: string): Promise<{ ok: boolean; reason?: string; folder?: DriveFile }> {
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(folderId)) return { ok: false, reason: "Invalid folder id." };
+  let meta: DriveFile & { parents?: string[] };
+  try { meta = await getMetadata(accessToken, folderId); } catch { return { ok: false, reason: "Folder not found or inaccessible." }; }
+  if (meta.mimeType !== "application/vnd.google-apps.folder") return { ok: false, reason: "Selected item is not a folder." };
+  if (expectedName && meta.name !== expectedName) return { ok: false, reason: `Folder name must be exactly "${expectedName}" (got "${meta.name}").` };
+  // Confirm listable
+  try { await listFiles(accessToken, folderId); } catch { return { ok: false, reason: "Folder contents cannot be listed." }; }
+  return { ok: true, folder: meta };
+}
+
+// Walk parents up to root to confirm target is within the Study OS root folder.
+export async function isWithinRoot(accessToken: string, targetId: string, rootId: string): Promise<boolean> {
+  if (targetId === rootId) return true;
+  let current = targetId;
+  const seen = new Set<string>();
+  while (current && current !== rootId && !seen.has(current)) {
+    seen.add(current);
+    let meta: DriveFile & { parents?: string[] };
+    try { meta = await getMetadata(accessToken, current); } catch { return false; }
+    const parent = meta.parents?.[0];
+    if (!parent) return false;
+    if (parent === rootId) return true;
+    current = parent;
+  }
+  return current === rootId;
 }
 
 export async function listFiles(accessToken: string, folderId: string): Promise<DriveFile[]> {

@@ -558,3 +558,39 @@ export const pastPaperCompletions = pgTable("past_paper_completions", {
   personalNotes: text("personal_notes"),
   ...timestamps,
 });
+
+
+// ── Prepared (not yet migrated): Google Drive metadata tables ──
+// These support replacing the notificationsJson blob storage for Drive metadata.
+// Apply via a reviewed migration before switching lib/google-drive-storage.ts to use them.
+export const googleDriveConnections = pgTable("google_drive_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  refreshTokenEncrypted: text("refresh_token_encrypted").notNull(),
+  folderId: text("folder_id").notNull(),
+  folderName: text("folder_name"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).defaultNow().notNull(),
+  email: text("email"),
+  ...timestamps,
+});
+
+export const driveFiles = pgTable("drive_files", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  driveFileId: text("drive_file_id").notNull(),
+  name: text("name").notNull(),
+  mimeType: text("mimeType").notNull(),
+  size: text("size"),
+  parentId: text("parent_id").notNull(),
+  board: examBoardEnum("board"),
+  qualification: qualificationLevelEnum("qualification"),
+  subject: text("subject"),
+  specCode: text("spec_code"),
+  resourceType: text("resource_type"),
+  sourceUrl: text("source_url"),
+  verified: boolean("verified").notNull().default(false),
+  importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
+  ...timestamps,
+}, (table) => ({
+  userDriveFileIdx: uniqueIndex("drive_files_user_drive_file_idx").on(table.userId, table.driveFileId),
+}));
