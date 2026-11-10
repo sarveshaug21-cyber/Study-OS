@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
+  FolderOpen,
   Library,
   CalendarDays,
   CircleHelp,
@@ -110,6 +111,12 @@ export const navSections: NavSection[] = [
   {
     label: "Workspace",
     items: [
+      {
+        href: "/cloud-files",
+        label: "Cloud Files",
+        icon: FolderOpen,
+        description: "Google Drive files",
+      },
       {
         href: "/settings",
         label: "Settings",
