@@ -2,9 +2,10 @@ import "server-only";
 import { env } from "@/lib/env";
 import { createProvider } from "./providers";
 export type AiMessage = { role: "user" | "assistant" | "system"; content: string };
-export async function generateAiReply(messages: AiMessage[]): Promise<{ content: string; provider: string; model: string }> {
+export async function generateAiReply(messages: AiMessage[], systemPrompt?: string): Promise<{ content: string; provider: string; model: string }> {
   const cfg = env.aiConfig();
   if (cfg.provider === "openrouter" && !cfg.openRouterKey) throw new Error("OPENROUTER_API_KEY is not configured.");
+  const fullMessages: AiMessage[] = systemPrompt ? [{ role: "system", content: systemPrompt }, ...messages] : messages;
   try {
     const provider = createProvider({
       provider: cfg.provider,
@@ -13,7 +14,7 @@ export async function generateAiReply(messages: AiMessage[]): Promise<{ content:
       openRouterBaseUrl: cfg.openRouterBaseUrl,
       openNotebookApiUrl: cfg.openNotebookApiUrl,
     });
-    const result = await provider.generate(messages);
+    const result = await provider.generate(fullMessages, systemPrompt);
     return { content: result.content, provider: provider.id, model: result.model };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);

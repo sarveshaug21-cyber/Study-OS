@@ -9,6 +9,8 @@ import {
   type QualificationLevel,
 } from "@/lib/demo-data";
 import { Badge } from "@/components/ui";
+import { api } from "@/lib/api";
+import { isDemoMode } from "@/lib/env";
 
 function Toggle({
   label,
@@ -79,12 +81,14 @@ export function SettingsForm() {
     goal: string;
     weekStart: string;
     targetGrade: string;
+    yearGroup: string;
   }>({
     board: "AQA",
     level: "A-level",
     goal: "90",
     weekStart: "Monday",
     targetGrade: "A*",
+    yearGroup: "Year 13",
   });
   const [notifications, setNotifications] = useState({
     daily: true,
@@ -113,6 +117,17 @@ export function SettingsForm() {
     timerRef.current = setTimeout(() => setStatus(null), 4000);
   };
 
+  useEffect(() => {
+    if (isDemoMode()) return;
+    api<{ studentProfile?: { yearGroup?: string | null; qualification?: string | null; examBoard?: string } | null }>("/api/settings")
+      .then((d) => {
+        if (d.studentProfile?.yearGroup) setPreferences((p) => ({ ...p, yearGroup: d.studentProfile!.yearGroup! }));
+        if (d.studentProfile?.qualification) setPreferences((p) => ({ ...p, level: d.studentProfile!.qualification as QualificationLevel }));
+        if (d.studentProfile?.examBoard) setPreferences((p) => ({ ...p, board: d.studentProfile!.examBoard as ExamBoard }));
+      })
+      .catch(() => {});
+  }, []);
+
   const saveProfile = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     notify("Profile changes saved locally for this demo.");
@@ -121,6 +136,9 @@ export function SettingsForm() {
   const savePreferences = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     notify("Study preferences saved locally for this demo.");
+    if (!isDemoMode()) {
+      api("/api/settings", { method: "PUT", body: JSON.stringify({ yearGroup: preferences.yearGroup, qualification: preferences.level, examBoard: preferences.board, dailyGoalMinutes: Number(preferences.goal) }) }).catch(() => notify("Could not sync to server."));
+    }
   };
 
   const resetPreferences = () => {
@@ -136,6 +154,7 @@ export function SettingsForm() {
       goal: "90",
       weekStart: "Monday",
       targetGrade: "A*",
+      yearGroup: "Year 13",
     });
     setNotifications({
       daily: true,
@@ -235,7 +254,7 @@ export function SettingsForm() {
                     }
                     className="input"
                   >
-                    {["Year 10", "Year 11", "Year 12", "Year 13", "Other"].map(
+                    {["Year 10", "Year 11", "Year 12", "Year 13"].map(
                       (year) => (
                         <option key={year} value={year}>
                           {year}
@@ -321,6 +340,28 @@ export function SettingsForm() {
                     {["30", "45", "60", "90", "120", "150"].map((minutes) => (
                       <option key={minutes} value={minutes}>
                         {minutes} minutes
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="year-group" className="label">
+                    Year group
+                  </label>
+                  <select
+                    id="year-group"
+                    value={preferences.yearGroup}
+                    onChange={(event) =>
+                      setPreferences((current) => ({
+                        ...current,
+                        yearGroup: event.target.value,
+                      }))
+                    }
+                    className="input"
+                  >
+                    {["Year 10", "Year 11", "Year 12", "Year 13"].map((y) => (
+                      <option key={y} value={y}>
+                        {y}
                       </option>
                     ))}
                   </select>

@@ -2,13 +2,15 @@ import { getDb } from "@/db";
 import { userSettings, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { withUser, json, optionalIntInRange, optionalString } from "@/lib/api-helpers";
+import { getStudentProfile, updateStudentProfile } from "@/lib/profile";
 const VALID_THEMES = ["light", "dark", "system"] as const;
 export async function GET() {
   return withUser(async (userId) => {
     const db = getDb();
     const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId));
     const [profile] = await db.select().from(users).where(eq(users.id, userId));
-    return json({ settings: settings ?? null, profile: profile ?? null });
+    const sp = await getStudentProfile();
+    return json({ settings: settings ?? null, profile: profile ?? null, studentProfile: sp });
   });
 }
 export async function PUT(req: Request) {
@@ -30,6 +32,10 @@ export async function PUT(req: Request) {
       if (v !== undefined && v.length > 20000) throw Object.assign(new Error("notificationsJson is too large"), { status: 400 });
       patch.notificationsJson = v;
     }
+    // Year group + qualification are persisted in Supabase Auth user metadata (no migration needed).
+    if (body.yearGroup !== undefined || body.qualification !== undefined) {
+      await updateStudentProfile({ yearGroup: typeof body.yearGroup === "string" ? body.yearGroup : undefined, qualification: typeof body.qualification === "string" ? body.qualification : undefined });
+    }
     const rows = await db.update(userSettings).set(patch).where(eq(userSettings.userId, userId)).returning();
     if (!rows.length) {
       const inserted = await db.insert(userSettings).values({ userId, dailyGoalMinutes: optionalIntInRange(body, "dailyGoalMinutes", 1, 1440) ?? 60, weekStartDay: optionalString(body, "weekStartDay") ?? "Monday" }).returning();
@@ -42,6 +48,11 @@ export async function PUT(req: Request) {
     if (body.displayName !== undefined) {
       if (typeof body.displayName !== "string" || !body.displayName.trim() || body.displayName.length > 200) throw Object.assign(new Error("Invalid displayName"), { status: 400 });
       await db.update(users).set({ displayName: body.displayName, updatedAt: new Date() }).where(eq(users.id, userId));
+    }
+    if (body.examBoard !== undefined) {
+      const BOARDS = ["AQA","Pearson Edexcel","OCR","WJEC","Eduqas","CCEA"];
+      if (typeof body.examBoard !== "string" || !BOARDS.includes(body.examBoard)) throw Object.assign(new Error("Invalid examBoard"), { status: 400 });
+      await db.update(users).set({ examBoard: body.examBoard as never, updatedAt: new Date() }).where(eq(users.id, userId));
     }
     return json({ settings: rows[0] });
   });

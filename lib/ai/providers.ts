@@ -5,7 +5,7 @@ export type AiProviderId = "open-notebook" | "openrouter";
 
 export interface AiProvider {
   readonly id: AiProviderId;
-  generate(messages: { role: "user" | "assistant" | "system"; content: string }[]): Promise<{ content: string; model: string }>;
+  generate(messages: { role: "user" | "assistant" | "system"; content: string }[], systemPrompt?: string): Promise<{ content: string; model: string }>;
   isConfigured(): boolean;
 }
 
@@ -13,11 +13,12 @@ export function openRouterProvider(key: string, model: string, baseUrl: string):
   return {
     id: "openrouter",
     isConfigured: () => Boolean(key),
-    async generate(messages) {
+    async generate(messages, systemPrompt) {
+      const msgs = systemPrompt ? [{ role: "system", content: systemPrompt }, ...messages] : messages;
       const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages }),
+        body: JSON.stringify({ model, messages: msgs }),
       });
       if (!res.ok) throw new Error(`OpenRouter request failed (${res.status}).`);
       const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
@@ -41,7 +42,7 @@ export class OpenNotebookProvider {
     if (!res.ok) throw new Error(`Open Notebook ${path} returned ${res.status}.`);
     return res.json() as Promise<unknown>;
   }
-  async generate(messages: { role: "user" | "assistant" | "system"; content: string }[]): Promise<{ content: string; model: string }> {
+  async generate(messages: { role: "user" | "assistant" | "system"; content: string }[], systemPrompt?: string): Promise<{ content: string; model: string }> {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUser) throw new Error("Open Notebook requires a user message.");
     // Open Notebook's chat API needs a session + context object.
@@ -53,7 +54,7 @@ export class OpenNotebookProvider {
     if (!sessionId) throw new Error("Open Notebook did not return a chat session.");
     const result = (await this.request("/api/chat/execute", {
       method: "POST",
-      body: JSON.stringify({ session_id: sessionId, message: lastUser.content, context: {} }),
+      body: JSON.stringify({ session_id: sessionId, message: lastUser.content, context: systemPrompt ? { system: systemPrompt } : {} }),
     })) as { messages?: { type?: string; role?: string; content?: string }[] };
     const reply = [...(result.messages ?? [])].reverse().find((m) => (m.type ?? m.role) === "ai" && m.content);
     if (!reply?.content) throw new Error("Open Notebook returned no AI reply.");
