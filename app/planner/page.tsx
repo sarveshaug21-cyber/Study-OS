@@ -11,11 +11,8 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { ProgressBar, StatCard } from "@/components/ui";
 import { PlannerBoard } from "@/components/planner-board";
-import {
-  assessments,
-  plannerTasks,
-  subjects,
-} from "@/lib/demo-data";
+import { PlannerStats } from "@/components/planner-stats";
+import { assessments, subjects } from "@/lib/demo-data";
 import { PlannerForm, SessionForm } from "@/components/data-panels";
 
 export const metadata: Metadata = {
@@ -24,24 +21,7 @@ export const metadata: Metadata = {
     "Plan your study week with focused blocks, deadlines and subject balance.",
 };
 
-const completed = plannerTasks.filter((task) => task.completed).length;
-const totalMinutes = plannerTasks.reduce(
-  (total, task) => total + task.duration,
-  0,
-);
-const completion = Math.round((completed / plannerTasks.length) * 100);
-
-const subjectMinutes = subjects
-  .map((subject) => {
-    const minutes = plannerTasks
-      .filter((task) => task.subject === subject.name)
-      .reduce((total, task) => total + task.duration, 0);
-
-    return { subject, minutes };
-  })
-  .filter((item) => item.minutes > 0)
-  .sort((a, b) => b.minutes - a.minutes)
-  .slice(0, 5);
+const subjectMinutes: { subject: typeof subjects[number]; minutes: number }[] = [];
 
 export default function PlannerPage() {
   return (
@@ -67,15 +47,15 @@ export default function PlannerPage() {
       <section aria-label="Planner statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Planned this week"
-          value={`${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`}
+          value="See board below"
           detail="Twelve blocks including two timed papers."
           icon={Clock3}
           accent="bg-brand-50 text-brand-600"
         />
         <StatCard
           label="Blocks complete"
-          value={`${completed}/${plannerTasks.length}`}
-          detail={`${completion}% of the weekly plan finished.`}
+          value="See board below"
+          detail="Live from your sessions"
           icon={CheckCircle2}
           accent="bg-emerald-50 text-emerald-700"
         />
@@ -109,11 +89,11 @@ export default function PlannerPage() {
               </p>
             </div>
             <span className="text-xs font-semibold text-ink-muted">
-              {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m total
+              Live totals
             </span>
           </div>
           <ul className="mt-5 space-y-4">
-            {subjectMinutes.map(({ subject, minutes }) => (
+            {subjectMinutes.length === 0 ? <li className="text-sm text-ink-muted">No subjects planned yet.</li> : subjectMinutes.map(({ subject, minutes }) => (
               <li key={subject.id}>
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="flex items-center gap-2 font-medium">
@@ -129,7 +109,7 @@ export default function PlannerPage() {
                   </span>
                 </div>
                 <ProgressBar
-                  value={(minutes / totalMinutes) * 100}
+                  value={0}
                   accent={subject.accent}
                   label={`${subject.name} planned time`}
                   className="mt-2"

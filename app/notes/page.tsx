@@ -4,6 +4,7 @@ import { CalendarDays, Clock3, NotebookPen, Pin, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { NotesWorkspace } from "@/components/notes-workspace";
+import { NoteEditor } from "@/components/note-editor";
 import { notes } from "@/lib/demo-data";
 import { NoteForm } from "@/components/data-panels";
 
@@ -70,6 +71,7 @@ export default function NotesPage() {
       </section>
 
       <NotesWorkspace />
+      <p className="text-xs text-ink-muted">Tip: use the NoteForm above to create notes; editing with autosave is available per note via the API.</p>
       <NoteForm />
     </div>
   );

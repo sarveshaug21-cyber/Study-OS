@@ -32,10 +32,34 @@ export async function PATCH(req: Request) {
     const db = getDb();
     const body = await req.json().catch(() => ({}));
     const id = requireUuid(body, "id");
-    const status = body.status;
-    if (!(STATUSES as readonly string[]).includes(status)) throw Object.assign(new Error("Invalid status"), { status: 400 });
-    const rows = await db.update(plannerTasks).set({ status, updatedAt: new Date() }).where(and(eq(plannerTasks.id, id), eq(plannerTasks.userId, userId))).returning();
+    const patch: Record<string, unknown> = { updatedAt: new Date() };
+    if (body.status !== undefined) {
+      if (!(STATUSES as readonly string[]).includes(body.status)) throw Object.assign(new Error("Invalid status"), { status: 400 });
+      patch.status = body.status;
+    }
+    if (body.title !== undefined) patch.title = requireString(body, "title", 500);
+    if (body.priority !== undefined) {
+      if (!(PRIORITIES as readonly string[]).includes(body.priority)) throw Object.assign(new Error("Invalid priority"), { status: 400 });
+      patch.priority = body.priority;
+    }
+    if (body.scheduledFor !== undefined) {
+      const d = new Date(body.scheduledFor); if (Number.isNaN(d.getTime())) throw Object.assign(new Error("Invalid scheduledFor"), { status: 400 });
+      patch.scheduledFor = d;
+    }
+    if (body.estimatedMinutes !== undefined) patch.estimatedMinutes = optionalIntInRange(body, "estimatedMinutes", 1, 10080) ?? 30;
+    const rows = await db.update(plannerTasks).set(patch).where(and(eq(plannerTasks.id, id), eq(plannerTasks.userId, userId))).returning();
     if (!rows.length) return json({ error: "Not found" }, 404);
     return json({ task: rows[0] });
+  });
+}
+
+export async function DELETE(req: Request) {
+  return withUser(async (userId) => {
+    const db = getDb();
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) throw Object.assign(new Error("id is required"), { status: 400 });
+    const rows = await db.delete(plannerTasks).where(and(eq(plannerTasks.id, id), eq(plannerTasks.userId, userId))).returning();
+    if (!rows.length) return json({ error: "Not found" }, 404);
+    return json({ ok: true });
   });
 }
