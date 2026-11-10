@@ -37,6 +37,10 @@ async function readBlob(userId: string): Promise<StoredBlob> {
   try { return JSON.parse(row.n) as StoredBlob; } catch { return {}; }
 }
 
+// Concurrency note: read-modify-write on a single JSON blob is NOT safe under concurrent
+// requests (notifications vs Drive metadata). For production, migrate to dedicated tables
+// (google_drive_connections, drive_files) prepared in db/schema.ts. Until then, callers
+// should serialize updates or accept last-write-wins.
 async function writeBlob(userId: string, blob: StoredBlob): Promise<void> {
   const db = getDb();
   const json = JSON.stringify(blob);

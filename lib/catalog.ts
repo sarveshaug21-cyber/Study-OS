@@ -1,8 +1,8 @@
 export const EXAM_BOARD_CATALOG = [
-  { board: "AQA", officialUrl: "https://www.aqa.org.uk", qualifications: ["GCSE","International GCSE","A-level","International A-level"] },
+  { board: "AQA", officialUrl: "https://www.aqa.org.uk", qualifications: ["GCSE","A-level"] },
   { board: "Pearson Edexcel", officialUrl: "https://qualifications.pearson.com", qualifications: ["GCSE","International GCSE","A-level","International A-level"] },
-  { board: "OCR", officialUrl: "https://www.ocr.org.uk", qualifications: ["GCSE","International GCSE","A-level","International A-level"] },
-  { board: "WJEC", officialUrl: "https://www.wjec.co.uk", qualifications: ["GCSE","International GCSE","A-level"] },
+  { board: "OCR", officialUrl: "https://www.ocr.org.uk", qualifications: ["GCSE","A-level"] },
+  { board: "WJEC", officialUrl: "https://www.wjec.co.uk", qualifications: ["GCSE","A-level"] },
   { board: "Eduqas", officialUrl: "https://www.eduqas.co.uk", qualifications: ["GCSE","A-level"] },
   { board: "CCEA", officialUrl: "https://www.rewardinglearning.org.uk", qualifications: ["GCSE","A-level"] },
 ] as const;
