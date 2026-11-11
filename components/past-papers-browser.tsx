@@ -9,28 +9,41 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import {
-  EXAM_BOARDS,
-  QUALIFICATION_LEVELS,
-  pastPapers,
-  type ExamBoard,
-  type QualificationLevel,
-} from "@/lib/demo-data";
 import { Badge } from "@/components/ui";
 
-type BoardFilter = ExamBoard | "all";
-type LevelFilter = QualificationLevel | "all";
+export type PastPaper = {
+  id: string;
+  subjectId: string;
+  subject: string;
+  board: string;
+  level: string;
+  year: number;
+  session: string;
+  paperCode: string;
+  title: string;
+  durationMinutes: number;
+  marks: number;
+  hasMarkScheme: boolean;
+};
 
-export function PastPapersBrowser() {
+type Completion = { pastPaperId: string; score: number | null };
+
+export function PastPapersBrowser({
+  papers = [],
+  completions = [],
+}: { papers: PastPaper[]; completions: Completion[] }) {
   const [query, setQuery] = useState("");
-  const [board, setBoard] = useState<BoardFilter>("all");
-  const [level, setLevel] = useState<LevelFilter>("all");
+  const [board, setBoard] = useState<string>("all");
+  const [level, setLevel] = useState<string>("all");
   const [notice, setNotice] = useState<string | null>(null);
+
+  const boards = [...new Set(papers.map((p) => p.board))].sort();
+  const levels = [...new Set(papers.map((p) => p.level))].sort();
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
-    return pastPapers.filter((paper) => {
+    return papers.filter((paper) => {
       const matchesQuery =
         !normalized ||
         paper.subject.toLowerCase().includes(normalized) ||
@@ -41,7 +54,7 @@ export function PastPapersBrowser() {
 
       return matchesQuery && matchesBoard && matchesLevel;
     });
-  }, [query, board, level]);
+  }, [query, board, level, papers]);
 
   const hasFilters = query !== "" || board !== "all" || level !== "all";
 
@@ -83,11 +96,11 @@ export function PastPapersBrowser() {
               <select
                 id="paper-board"
                 value={board}
-                onChange={(event) => setBoard(event.target.value as BoardFilter)}
+                onChange={(event) => setBoard(event.target.value)}
                 className="input"
               >
                 <option value="all">All boards</option>
-                {EXAM_BOARDS.map((item) => (
+                {boards.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>
@@ -101,11 +114,11 @@ export function PastPapersBrowser() {
               <select
                 id="paper-level"
                 value={level}
-                onChange={(event) => setLevel(event.target.value as LevelFilter)}
+                onChange={(event) => setLevel(event.target.value)}
                 className="input"
               >
                 <option value="all">All levels</option>
-                {QUALIFICATION_LEVELS.map((item) => (
+                {levels.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>
@@ -118,7 +131,7 @@ export function PastPapersBrowser() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted">
             <SlidersHorizontal aria-hidden="true" size={13} />
-            Showing {filtered.length} of {pastPapers.length} papers
+            Showing {filtered.length} of {papers.length} papers
           </span>
           {hasFilters && (
             <button
@@ -167,7 +180,7 @@ export function PastPapersBrowser() {
           <div className="card hidden overflow-hidden md:block">
             <table className="min-w-full divide-y divide-slate-100">
               <caption className="sr-only">
-                Demo past papers with exam board, qualification, session,
+                Past papers with exam board, qualification, session,
                 duration, marks and mark scheme availability
               </caption>
               <thead className="bg-slate-50/80">
@@ -188,40 +201,42 @@ export function PastPapersBrowser() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((paper) => (
-                  <tr key={paper.id} className="transition hover:bg-slate-50/60">
-                    <td className="px-4 py-3.5">
-                      <p className="text-sm font-semibold text-ink">
-                        {paper.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-muted">
-                        {paper.subject} · {paper.paperCode}
-                      </p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
-                      {paper.board}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
-                      {paper.level}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
-                      {paper.session} {paper.year}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
-                      {Math.floor(paper.durationMinutes / 60)}h{" "}
-                      {paper.durationMinutes % 60 > 0
-                        ? `${paper.durationMinutes % 60}m`
-                        : ""}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
-                      {paper.marks}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            requestDownload(`${paper.paperCode} question paper`)
+                {filtered.map((paper) => {
+                  const completion = completions.find((c) => c.pastPaperId === paper.id);
+                  return (
+                    <tr key={paper.id} className="transition hover:bg-slate-50/60">
+                      <td className="px-4 py-3.5">
+                        <p className="text-sm font-semibold text-ink">
+                          {paper.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                          {paper.subject} · {paper.paperCode}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
+                        {paper.board}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
+                        {paper.level}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
+                        {paper.session} {paper.year}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
+                        {Math.floor(paper.durationMinutes / 60)}h{" "}
+                        {paper.durationMinutes % 60 > 0
+                          ? `${paper.durationMinutes % 60}m`
+                          : ""}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-ink-soft">
+                        {paper.marks}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              requestDownload(`${paper.paperCode} question paper`)
                           }
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-slate-50"
                           aria-label={`Download ${paper.paperCode} question paper (demo)`}
@@ -238,12 +253,12 @@ export function PastPapersBrowser() {
                           aria-label={`Download ${paper.paperCode} mark scheme (demo)`}
                         >
                           <CheckCircle2 aria-hidden="true" size={12} />
-                          MS
+                          Mark scheme
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -278,9 +293,8 @@ export function PastPapersBrowser() {
                     type="button"
                     onClick={() =>
                       requestDownload(`${paper.paperCode} question paper`)
-                    }
-                    className="btn-secondary flex-1 px-3 py-2 text-xs"
-                  >
+                  }
+                  className="btn-secondary flex-1 px-3 py-2 text-xs">
                     <Download aria-hidden="true" size={13} />
                     Paper
                   </button>
@@ -288,7 +302,7 @@ export function PastPapersBrowser() {
                     type="button"
                     onClick={() =>
                       requestDownload(`${paper.paperCode} mark scheme`)
-                    }
+                  }
                     className="btn flex-1 border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-100"
                   >
                     <CheckCircle2 aria-hidden="true" size={13} />

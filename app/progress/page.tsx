@@ -1,3 +1,5 @@
+"use client";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -16,121 +18,174 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { ProgressBar, StatCard } from "@/components/ui";
 import { MasteryChart } from "@/components/mastery-chart";
-import {
-  EXAM_BOARDS,
-  subjects,
-  subjectGradeRows,
-} from "@/lib/demo-data";
-import { RealAnalytics } from "@/components/real-analytics";
+import { api } from "@/lib/api";
+import { useEffect, useState } from "react";
 
-export const metadata: Metadata = {
-  title: "Progress",
-  description:
-    "Track mastery, study time, exam board coverage and predicted grades.",
+type ProgressRecord = {
+  id: string;
+  userId: string;
+  subjectId: string;
+  mastery: number;
+  confidence: number;
+  studyMinutes: number;
+  recordedAt: string;
 };
 
-const averageMastery = Math.round(
-  subjects.reduce((total, subject) => total + subject.progress, 0) /
-    subjects.length,
-);
-const topicsComplete = subjects.reduce(
-  (total, subject) => total + subject.topicsComplete,
-  0,
-);
-const topicsTotal = subjects.reduce(
-  (total, subject) => total + subject.topicsTotal,
-  0,
-);
+type StudySession = {
+  id: string;
+  userId: string;
+  subjectId: string | null;
+  topicId: string | null;
+  minutes: number;
+  focus: string | null;
+  notes: string | null;
+  startedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
-const boardMastery = EXAM_BOARDS.map((board) => {
-  const boardSubjects = subjects.filter((subject) => subject.board === board);
-  const average = Math.round(
-    boardSubjects.reduce((total, subject) => total + subject.progress, 0) /
-      boardSubjects.length,
-  );
+type PracticeAttempt = {
+  id: string;
+  userId: string;
+  questionId: string;
+  answer: string | null;
+  score: number | null;
+  marksAvailable: number;
+  completedAt: string;
+};
 
-  return {
-    board,
-    count: boardSubjects.length,
-    average,
-  };
-}).sort((a, b) => b.average - a.average);
-
-const milestones = [
-  {
-    title: "12-day study streak",
-    detail: "Your best run this term. One more day to equal your record.",
-    icon: Flame,
-    accent: "bg-orange-50 text-orange-600",
-  },
-  {
-    title: "Biology crossed 75%",
-    detail: "Exchange surfaces is now your strongest A-level unit.",
-    icon: Target,
-    accent: "bg-brand-50 text-brand-600",
-  },
-  {
-    title: "250 cards reviewed",
-    detail: "84% recall across this week's spaced-repetition sessions.",
-    icon: Layers,
-    accent: "bg-cyan-50 text-cyan-700",
-  },
-  {
-    title: "8 past papers marked",
-    detail: "Two more than October. Mathematics is improving fastest.",
-    icon: FileText,
-    accent: "bg-emerald-50 text-emerald-700",
-  },
-];
+type PracticeQuestion = {
+  id: string;
+  userId: string;
+  subjectId: string;
+  question: string;
+  modelAnswer: string;
+  markScheme: string | null;
+  difficulty: string;
+  marks: number;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export default function ProgressPage() {
+  const [records, setRecords] = useState<ProgressRecord[]>([]);
+  const [sessions, setSessions] = useState<StudySession[]>([]);
+  const [attempts, setAttempts] = useState<PracticeAttempt[]>([]);
+  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [r, s, a, q] = await Promise.all([
+          api<{ records: ProgressRecord[] }>("/api/progress").then(
+            (d) => d.records ?? [],
+          ),
+          api<{ sessions: StudySession[] }>("/api/progress").then(
+            (d) => d.sessions ?? [],
+          ),
+          api<{ attempts: PracticeAttempt[] }>("/api/progress").then(
+            (d) => d.attempts ?? [],
+          ),
+          api<{ questions: PracticeQuestion[] }>("/api/progress").then(
+            (d) => d.questions ?? [],
+          ),
+        ]);
+        setRecords(r);
+        setSessions(s);
+        setAttempts(a);
+        setQuestions(q);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load progress data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const totalStudyMinutes = sessions.reduce((a, s) => a + s.minutes, 0);
+  const scoredAttempts = attempts.filter((a) => typeof a.score === "number");
+  const accuracy = scoredAttempts.length
+    ? Math.round(
+        scoredAttempts.reduce((a, x) => a + (x.score ?? 0) / x.marksAvailable, 0) /
+          scoredAttempts.length *
+          100,
+      )
+    : 0;
+  const totalMastery = records.reduce((a, r) => a + r.mastery, 0);
+  const averageMastery = records.length
+    ? Math.round(totalMastery / records.length)
+    : 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Long-term view"
+          title="Progress"
+          description="Mastery, study time, exam board coverage and grade trajectory based on your actual study data."
+        />
+        <p className="text-sm text-ink-muted">Loading your progress data…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Long-term view"
+          title="Progress"
+          description="Mastery, study time, exam board coverage and grade trajectory based on your actual study data."
+        />
+        <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+          {error}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Long-term view"
         title="Progress"
-        description="Mastery, study time, board coverage and grade trajectory in one place. All figures are illustrative demo data."
-        actions={
-          <>
-            <Link href="/notes" className="btn-secondary">
-              <BookOpen aria-hidden="true" size={16} />
-              Open notes
-            </Link>
-            <Link href="/planner" className="btn-primary">
-              <Timer aria-hidden="true" size={16} />
-              Review planner
-            </Link>
-          </>
-        }
+        description="Mastery, study time, exam board coverage and grade trajectory based on your actual study data."
       />
 
       <section aria-label="Progress summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Average mastery"
           value={`${averageMastery}%`}
-          detail="Up 17 points over the last eight weeks."
+          detail="Based on your progress records."
           icon={Target}
           accent="bg-brand-50 text-brand-600"
         />
         <StatCard
           label="Study this week"
-          value="6h 42m"
-          detail="74% of the 9-hour weekly target."
+          value={`${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`}
+          detail="From your logged study sessions."
           icon={Timer}
           accent="bg-cyan-50 text-cyan-700"
         />
         <StatCard
-          label="Cards reviewed"
-          value="246"
-          detail="Across 10 decks. 84% recalled first time."
+          label="Progress records"
+          value={String(records.length)}
+          detail="Based on your tracked progress."
           icon={Layers}
           accent="bg-amber-50 text-amber-700"
         />
         <StatCard
-          label="Topics mastered"
-          value={`${topicsComplete}/${topicsTotal}`}
-          detail="Ten active subjects · six exam boards."
-          icon={BookOpen}
+          label="Practice accuracy"
+          value={`${accuracy}%`}
+          detail={
+            scoredAttempts.length > 0
+              ? `Based on ${scoredAttempts.length} attempts`
+              : "No attempts recorded yet"
+          }
+          icon={Target}
           accent="bg-emerald-50 text-emerald-700"
         />
       </section>
@@ -143,11 +198,11 @@ export default function ProgressPage() {
                 Mastery trend
               </h2>
               <p className="mt-0.5 text-sm text-ink-muted">
-                Average mastery across all active subjects
+                Average mastery across all progress records
               </p>
             </div>
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-              +17 pts in 8 weeks
+              {records.length} records
             </span>
           </div>
           <div className="mt-5">
@@ -156,11 +211,13 @@ export default function ProgressPage() {
           <div className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm">
             <div>
               <p className="text-xs text-ink-muted">Starting point</p>
-              <p className="mt-0.5 font-semibold">48%</p>
+              <p className="mt-0.5 font-semibold">
+                {records.length > 0 ? records[0].mastery : 0}%
+              </p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">Current</p>
-              <p className="mt-0.5 font-semibold">65%</p>
+              <p className="mt-0.5 font-semibold">{averageMastery}%</p>
             </div>
             <div>
               <p className="text-xs text-ink-muted">Target by June</p>
@@ -181,29 +238,9 @@ export default function ProgressPage() {
             </div>
             <Award aria-hidden="true" size={18} className="text-brand-500" />
           </div>
-          <ul className="mt-5 space-y-3.5">
-            {boardMastery.map((item) => (
-              <li key={item.board}>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="truncate font-medium">{item.board}</span>
-                  <span className="shrink-0 text-xs text-ink-muted">
-                    {item.count} {item.count === 1 ? "subject" : "subjects"}
-                  </span>
-                  <span className="w-9 shrink-0 text-right text-xs font-semibold">
-                    {item.average}%
-                  </span>
-                </div>
-                <ProgressBar
-                  value={item.average}
-                  label={`${item.board} average mastery`}
-                  className="mt-1.5"
-                />
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-ink-muted">
-            {boardMastery[0]?.board} currently leads your board averages at{" "}
-            {boardMastery[0]?.average}% mastery.
+          <p className="mt-4 text-sm text-ink-muted">
+            Board-level mastery requires subject-board linkage in progress records.
+            Configure your subjects in Settings to see board breakdowns.
           </p>
         </section>
       </div>
@@ -245,45 +282,45 @@ export default function ProgressPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {subjectGradeRows.map((row) => (
-                  <tr key={row.subject} className="transition hover:bg-slate-50/60">
+                {records.map((row) => (
+                  <tr key={row.id} className="transition hover:bg-slate-50/60">
                     <th scope="row" className="whitespace-nowrap px-5 py-3.5 text-left text-sm font-semibold">
-                      {row.subject}
+                      {row.subjectId}
                     </th>
                     <td className="whitespace-nowrap px-5 py-3.5 text-xs text-ink-soft">
-                      {row.board}
+                      {row.subjectId}
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-sm">
-                      {row.target}
+                      {row.mastery}%
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-sm">
-                      {row.predicted}
+                      {row.confidence}%
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-sm text-ink-soft">
-                      {row.latest}
+                      {row.studyMinutes} min
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5">
                       <span
                         className={
-                          row.trend === "up"
+                          row.mastery >= 75
                             ? "inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"
-                            : row.trend === "down"
-                              ? "inline-flex items-center gap-1 text-xs font-semibold text-rose-700"
-                              : "inline-flex items-center gap-1 text-xs font-semibold text-ink-muted"
+                            : row.mastery >= 50
+                              ? "inline-flex items-center gap-1 text-xs font-semibold text-ink-soft"
+                              : "inline-flex items-center gap-1 text-xs font-semibold text-rose-700"
                         }
                       >
-                        {row.trend === "up" ? (
+                        {row.mastery >= 75 ? (
                           <ArrowUpRight aria-hidden="true" size={13} />
-                        ) : row.trend === "down" ? (
-                          <ArrowDownRight aria-hidden="true" size={13} />
-                        ) : (
+                        ) : row.mastery >= 50 ? (
                           <Minus aria-hidden="true" size={13} />
+                        ) : (
+                          <ArrowDownRight aria-hidden="true" size={13} />
                         )}
-                        {row.trend === "up"
-                          ? "Improving"
-                          : row.trend === "down"
-                            ? "Needs focus"
-                            : "Stable"}
+                        {row.mastery >= 75
+                          ? "Strong"
+                          : row.mastery >= 50
+                            ? "Developing"
+                            : "Needs work"}
                       </span>
                     </td>
                   </tr>
@@ -298,40 +335,39 @@ export default function ProgressPage() {
             Recent milestones
           </h2>
           <p className="mt-0.5 text-sm text-ink-muted">
-            Small wins from the last 30 days
+            Based on your actual study data.
           </p>
           <ol className="mt-5 space-y-4">
-            {milestones.map((milestone) => {
-              const Icon = milestone.icon;
-              return (
-                <li key={milestone.title} className="flex gap-3">
-                  <span
-                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${milestone.accent}`}
-                  >
-                    <Icon aria-hidden="true" size={16} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold leading-5">
-                      {milestone.title}
-                    </p>
-                    <p className="mt-0.5 text-xs leading-5 text-ink-muted">
-                      {milestone.detail}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
+            {records.length > 0 ? (
+              <li key="streak" className="flex gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500 text-white">
+                  <Flame aria-hidden="true" size={16} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-5">
+                    {records.length} progress records
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-ink-muted">
+                    Great consistency!
+                  </p>
+                </div>
+              </li>
+            ) : (
+              <li className="flex gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-200 text-ink-soft">
+                  <Flame aria-hidden="true" size={16} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-5">No records yet</p>
+                  <p className="mt-0.5 text-xs leading-5 text-ink-muted">
+                    Start logging your study sessions to see progress.
+                  </p>
+                </div>
+              </li>
+            )}
           </ol>
-          <Link
-            href="/planner"
-            className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
-          >
-            Keep the streak going
-            <ArrowRight aria-hidden="true" size={12} />
-          </Link>
         </section>
       </div>
-      <RealAnalytics />
     </div>
   );
 }

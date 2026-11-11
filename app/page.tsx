@@ -1,3 +1,6 @@
+"use client";
+
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -10,31 +13,158 @@ import {
   Timer,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { StatCard, ProgressBar } from "@/components/ui";
+import { MasteryChart } from "@/components/mastery-chart";
 import { TodayPlan } from "@/components/today-plan";
 import { WeeklyStudyChart } from "@/components/weekly-study-chart";
-import { StatCard, ProgressBar } from "@/components/ui";
-import {
-  assessments,
-  boardCoverage,
-  dashboardActivity,
-  demoUser,
-  subjects,
-  weeklyStudy,
-} from "@/lib/demo-data";
+import { api } from "@/lib/api";
+import { useEffect, useState } from "react";
 
-const continueSubjects = [
-  subjects.find((subject) => subject.id === "bio-aqa"),
-  subjects.find((subject) => subject.id === "maths-edexcel"),
-  subjects.find((subject) => subject.id === "psych-int-edexcel"),
-].filter((subject): subject is NonNullable<typeof subject> => Boolean(subject));
+type Subject = {
+  id: string;
+  name: string;
+  board: string;
+  level: string;
+  accent: string;
+  progress: number;
+  examDate: string | null;
+};
+
+type PlannerTask = {
+  id: string;
+  title: string;
+  subjectId: string | null;
+  scheduledFor: string;
+  estimatedMinutes: number;
+  status: string;
+};
+
+type PracticeQuestion = {
+  id: string;
+  subjectId: string;
+  question: string;
+  marks: number;
+  createdAt: string;
+};
+
+type ProgressRecord = {
+  id: string;
+  userId: string;
+  subjectId: string;
+  mastery: number;
+  confidence: number;
+  studyMinutes: number;
+  recordedAt: string;
+};
+
+
 
 export default function DashboardPage() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [tasks, setTasks] = useState<PlannerTask[]>([]);
+  const [records, setRecords] = useState<ProgressRecord[]>([]);
+  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [sRes, pRes, rRes, qRes] = await Promise.all([
+          api<{ subjects: Subject[] }>("/api/subjects"),
+          api<{ tasks: PlannerTask[] }>("/api/planner"),
+          api<{ records: ProgressRecord[] }>("/api/progress"),
+          api<{ questions: PracticeQuestion[] }>("/api/practice"),
+        ]);
+        setSubjects(sRes.subjects ?? []);
+        setTasks(pRes.tasks ?? []);
+        setRecords(rRes.records ?? []);
+        setQuestions(qRes.questions ?? []);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load dashboard");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayTasks = tasks.filter((t) => {
+    const d = new Date(t.scheduledFor);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === today.getTime() && t.status !== "done";
+  });
+
+  const upcomingTasks = tasks
+    .filter((t) => {
+      const d = new Date(t.scheduledFor);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() > today.getTime() && t.status !== "done";
+    })
+    .slice(0, 3);
+
+  const upcomingAssessments = questions
+    .filter((q) => {
+      const d = new Date(q.createdAt);
+      return d > today;
+    })
+    .slice(0, 3);
+
+  const totalStudyMinutes = 0; // Would come from study sessions
+  const averageMastery =
+    records.length > 0
+      ? Math.round(
+          records.reduce((a, r) => a + r.mastery, 0) / records.length
+        )
+    : 0;
+
+  const recentActivity = records
+    .slice(0, 5)
+    .map((r) => ({
+      id: r.id,
+      title: `Updated ${r.subjectId} progress`,
+      detail: `${r.mastery}% mastery`,
+      time: r.recordedAt,
+      accent: subjects.find((s) => s.id === r.subjectId)?.accent || "#7A55F2",
+    }));
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Sunday, 8 November"
+          title="Loading dashboard…"
+          description=""
+        />
+        <p className="text-sm text-ink-muted">Loading your dashboard data…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Long-term view"
+          title="Progress"
+          description="Mastery, study time, exam board coverage and grade trajectory based on your actual study data."
+        />
+        <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+          {error}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Sunday, 8 November"
-        title={`Good evening, ${demoUser.name.split(" ")[0]}`}
-        description="You are 4 days out from your Biology mock. Here is what matters most this evening."
+        eyebrow="Dashboard"
+        title="Study OS"
+        description="Your study snapshot, progress tracker and revision command centre."
         actions={
           <>
             <Link href="/ai-tutor" className="btn-secondary">
@@ -51,30 +181,30 @@ export default function DashboardPage() {
 
       <section aria-label="Study summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Study streak"
-          value="12 days"
-          detail="Personal best is 21 days. Keep the run alive."
-          icon={Flame}
-          accent="bg-orange-50 text-orange-600"
-        />
-        <StatCard
-          label="Cards due"
-          value="37"
-          detail="Across 10 decks · about 24 minutes today."
+          label="Active subjects"
+          value={String(subjects.length)}
+          detail="Across your enrolled courses."
           icon={Layers}
           accent="bg-brand-50 text-brand-600"
         />
         <StatCard
-          label="Weekly focus"
-          value="6h 42m"
-          detail="74% of your 9-hour target. Saturday was your best day."
+          label="Today's tasks"
+          value={String(todayTasks.length)}
+          detail="Due today across your subjects."
+          icon={Flame}
+          accent="bg-orange-50 text-orange-600"
+        />
+        <StatCard
+          label="Weekly study"
+          value={`${Math.floor(totalStudyMinutes / 60)}h ${totalStudyMinutes % 60}m`}
+          detail="From your logged study sessions."
           icon={Timer}
           accent="bg-cyan-50 text-cyan-700"
         />
         <StatCard
           label="Average mastery"
-          value="65%"
-          detail="Up 4 points this month across all subjects."
+          value={`${averageMastery}%`}
+          detail="Based on your progress records."
           icon={Target}
           accent="bg-emerald-50 text-emerald-700"
         />
@@ -88,7 +218,7 @@ export default function DashboardPage() {
                 Continue where you left off
               </h2>
               <p className="mt-0.5 text-sm text-ink-muted">
-                Three focused sessions picked from your current plan.
+                Focus on your upcoming study blocks.
               </p>
             </div>
             <Link
@@ -96,52 +226,52 @@ export default function DashboardPage() {
               className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800"
             >
               All subjects
-              <ArrowUpRight aria-hidden="true" size={13} />
+              <ArrowRight aria-hidden="true" size={13} />
             </Link>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {continueSubjects.map((subject) => (
-              <Link
-                key={subject.id}
-                href="/subjects"
-                className="group flex flex-col rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-card"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: subject.accent }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-xs font-semibold text-ink-soft">
-                    {subject.name}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm font-semibold leading-5 text-ink">
-                  {subject.nextTopic}
-                </p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {subject.board} · {subject.level}
-                </p>
-                <div className="mt-4 flex items-center justify-between text-xs text-ink-muted">
-                  <span>{subject.progress}% mastery</span>
-                  <span className="inline-flex items-center gap-1 font-semibold text-brand-700 opacity-0 transition group-hover:opacity-100">
-                    Resume
-                    <ArrowRight aria-hidden="true" size={12} />
-                  </span>
-                </div>
-                <ProgressBar
-                  value={subject.progress}
-                  accent={subject.accent}
-                  label={`${subject.name} mastery`}
-                  className="mt-2"
-                />
-              </Link>
-            ))}
+            {todayTasks.slice(0, 3).length > 0 ? (
+              todayTasks.slice(0, 3).map((task) => {
+                const subject = subjects.find((s) => s.id === task.subjectId);
+                return (
+                  <Link
+                    key={task.id}
+                    href="/subjects"
+                    className="group flex flex-col rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-card"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: subject?.accent }}
+                        aria-hidden="true"
+                      />
+                      <span className="text-xs font-semibold text-ink-soft">
+                        {subject?.name || "Subject"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold leading-5 text-ink">
+                      {task.title}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {task.subjectId ? "Scheduled task" : "No subject"}
+                    </p>
+                    <ProgressBar
+                      value={0}
+                      accent={subject?.accent || "#7A55F2"}
+                      label={task.title}
+                      className="mt-2"
+                    />
+                  </Link>
+                )
+              })
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 p-6 text-center text-sm text-ink-muted">
+                No upcoming study blocks. Add one in the planner.
+              </div>
+            )}
           </div>
         </section>
-
-        <TodayPlan />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.65fr_1fr]">
@@ -152,130 +282,56 @@ export default function DashboardPage() {
                 Weekly study rhythm
               </h2>
               <p className="mt-0.5 text-sm text-ink-muted">
-                Minutes studied each day this week
+                Study time logged this week
               </p>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tracking-tight">6h 42m</span>
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[0.68rem] font-semibold text-emerald-700">
-                +12% vs last week
+              <span className="text-2xl font-semibold tracking-tight">
+                {Math.floor(totalStudyMinutes / 60)}h{" "}
+                {totalStudyMinutes % 60}m
               </span>
             </div>
           </div>
-
-          <WeeklyStudyChart data={weeklyStudy} className="mt-6" large />
-
-          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-sm sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-ink-muted">Daily average</p>
-              <p className="mt-0.5 font-semibold">57 min</p>
-            </div>
-            <div>
-              <p className="text-xs text-ink-muted">Best day</p>
-              <p className="mt-0.5 font-semibold">Saturday · 1h 36m</p>
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-xs text-ink-muted">Focus goal</p>
-              <p className="mt-0.5 font-semibold">90 min / day</p>
-            </div>
+          <div className="mt-4">
+            <WeeklyStudyChart
+              data={[]}
+              className="mt-6"
+              large
+            />
           </div>
         </section>
 
-        <section
-          className="relative flex flex-col overflow-hidden rounded-2xl bg-night p-5 text-white shadow-lift"
-          aria-labelledby="next-assessment-title"
-        >
-          <div
-            className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-500/30 blur-3xl"
-            aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-cyan-500/15 blur-3xl"
-            aria-hidden="true"
-          />
-          <div className="relative">
-            <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-brand-200">
-                <CalendarClock aria-hidden="true" size={12} />
-                Next assessment
-              </span>
-              <span className="rounded-full bg-amber-300/15 px-2.5 py-1 text-[0.68rem] font-semibold text-amber-200">
-                4 days
-              </span>
-            </div>
-            <h2
-              id="next-assessment-title"
-              className="mt-5 text-balance text-2xl font-semibold tracking-tight"
-            >
-              Biology mock — Paper 1
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              AQA · A-level · Thursday 12 November, 09:00
-            </p>
-
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span>Topics covered</span>
-                <span className="font-semibold text-white">18 / 24</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-brand-400 to-cyan-300" />
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-white/[0.06] p-3">
-                <p className="text-[0.68rem] uppercase tracking-wider text-slate-400">
-                  Predicted
-                </p>
-                <p className="mt-1 text-lg font-semibold">A</p>
-              </div>
-              <div className="rounded-xl bg-white/[0.06] p-3">
-                <p className="text-[0.68rem] uppercase tracking-wider text-slate-400">
-                  Target
-                </p>
-                <p className="mt-1 text-lg font-semibold">A*</p>
-              </div>
-            </div>
-
-            <Link
-              href="/planner"
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-slate-100"
-            >
-              Review revision plan
-              <ArrowRight aria-hidden="true" size={15} />
-            </Link>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
         <section className="card p-5" aria-labelledby="assessments-title">
           <div className="flex items-end justify-between gap-3">
-            <h2 id="assessments-title" className="text-base font-semibold tracking-tight">
-              Upcoming assessments
-            </h2>
-            <Link href="/planner" className="text-xs font-semibold text-brand-700 hover:text-brand-800">
+            <div>
+              <h2 id="assessments-title" className="text-base font-semibold tracking-tight">
+                Upcoming assessments
+              </h2>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                Based on your practice questions.
+              </p>
+            </div>
+            <Link href="/past-papers" className="text-xs font-semibold text-brand-700 hover:text-brand-800">
               View all
             </Link>
           </div>
           <ul className="mt-4 divide-y divide-slate-100">
-            {assessments.map((assessment) => (
-              <li key={assessment.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+            {upcomingAssessments.map((q) => (
+              <li key={q.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                 <span
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-bold"
                   style={{
-                    backgroundColor: `${assessment.accent}14`,
-                    color: assessment.accent,
+                    backgroundColor: "#7A55F214",
+                    color: "#7A55F2",
                   }}
                   aria-hidden="true"
                 >
-                  {assessment.daysAway}d
+                  {1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{assessment.title}</p>
-                  <p className="truncate text-xs text-ink-muted">
-                    {assessment.date} · {assessment.type}
+                  <p className="truncate text-sm font-semibold">{q.question}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted">
+                    {q.marks} marks
                   </p>
                 </div>
                 <ArrowUpRight
@@ -290,15 +346,20 @@ export default function DashboardPage() {
 
         <section className="card p-5" aria-labelledby="activity-title">
           <div className="flex items-end justify-between gap-3">
-            <h2 id="activity-title" className="text-base font-semibold tracking-tight">
-              Recent activity
-            </h2>
+            <div>
+              <h2 id="activity-title" className="text-base font-semibold tracking-tight">
+                Recent activity
+              </h2>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                Latest progress updates.
+              </p>
+            </div>
             <Link href="/progress" className="text-xs font-semibold text-brand-700 hover:text-brand-800">
-              Progress
+              View all
             </Link>
           </div>
           <ol className="mt-4 space-y-4">
-            {dashboardActivity.map((activity) => (
+            {recentActivity.map((activity) => (
               <li key={activity.id} className="flex gap-3">
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
@@ -322,8 +383,8 @@ export default function DashboardPage() {
               <h2 id="boards-title" className="text-base font-semibold tracking-tight">
                 Exam board coverage
               </h2>
-              <p className="mt-0.5 text-xs text-ink-muted">
-                10 subjects across 6 boards
+              <p className="mt-0.5 text-sm text-ink-muted">
+                {new Set(subjects.map((s) => s.board)).size} boards
               </p>
             </div>
             <Link href="/subjects" className="text-xs font-semibold text-brand-700 hover:text-brand-800">
@@ -331,16 +392,16 @@ export default function DashboardPage() {
             </Link>
           </div>
           <ul className="mt-4 grid grid-cols-2 gap-2.5">
-            {boardCoverage.map((item) => (
+            {[...new Set(subjects.map((s) => s.board))].map((board) => (
               <li
-                key={item.board}
+                key={board}
                 className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5"
               >
                 <p className="truncate text-xs font-semibold text-ink-soft">
-                  {item.board}
+                  {board}
                 </p>
                 <p className="mt-0.5 text-[0.68rem] text-ink-muted">
-                  {item.subjects} {item.subjects === 1 ? "subject" : "subjects"}
+                  {subjects.filter((s) => s.board === board).length} subjects
                 </p>
               </li>
             ))}

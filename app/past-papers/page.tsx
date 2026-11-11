@@ -10,9 +10,25 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { PastPapersBrowser } from "@/components/past-papers-browser";
-import { EXAM_BOARDS, QUALIFICATION_LEVELS, pastPapers } from "@/lib/demo-data";
+import { EXAM_BOARD_CATALOG as EXAM_BOARDS, QUALIFICATIONS as QUALIFICATION_LEVELS } from "@/lib/catalog";
+import { OFFICIAL_RESOURCES } from "@/lib/official-resources";
 import { PastPaperLinks } from "@/components/past-paper-actions";
-import { pastPapers as _papers } from "@/lib/demo-data";
+import { api } from "@/lib/api";
+
+type PastPaper = {
+  id: string;
+  subjectId: string;
+  subject: string;
+  board: string;
+  level: string;
+  year: number;
+  session: string;
+  paperCode: string;
+  title: string;
+  durationMinutes: number;
+  marks: number;
+  hasMarkScheme: boolean;
+};
 
 export const metadata: Metadata = {
   title: "Past Papers",
@@ -20,15 +36,27 @@ export const metadata: Metadata = {
     "Browse GCSE, International GCSE and A-level past papers with mark schemes.",
 };
 
-const markSchemeCount = pastPapers.filter((paper) => paper.hasMarkScheme).length;
+export default async function PastPapersPage() {
+  let papers: PastPaper[] = [];
+  let completions: { pastPaperId: string; score: number | null }[] = [];
+  let error: string | null = null;
 
-export default function PastPapersPage() {
+  try {
+    const d = await api<{ papers: PastPaper[]; completions: { pastPaperId: string; score: number | null }[] }>("/api/past-papers");
+    papers = d.papers ?? [];
+    completions = d.completions ?? [];
+  } catch (e) {
+    error = e instanceof Error ? e.message : "Failed to load past papers";
+  }
+
+  const markSchemeCount = papers.filter((paper) => paper.hasMarkScheme).length;
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Question practice"
         title="Past papers"
-        description="A realistic demo library covering AQA, Pearson Edexcel, OCR, WJEC, Eduqas and CCEA across every supported qualification."
+        description="Browse GCSE, International GCSE and A-level past papers with mark schemes."
         actions={
           <>
             <Link href="/practice" className="btn-secondary">
@@ -43,11 +71,17 @@ export default function PastPapersPage() {
         }
       />
 
+      {error && (
+        <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+          {error} — showing limited content.
+        </p>
+      )}
+
       <section aria-label="Past paper statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Papers available"
-          value={String(pastPapers.length)}
-          detail="Representative question papers in the demo library."
+          value={String(papers.length)}
+          detail="Past papers from your connected data source."
           icon={FileText}
           accent="bg-brand-50 text-brand-600"
         />
@@ -67,27 +101,25 @@ export default function PastPapersPage() {
         />
         <StatCard
           label="Mark schemes"
-          value={`${markSchemeCount}/${pastPapers.length}`}
-          detail="Every demo paper includes marking guidance."
+          value={`${markSchemeCount}/${papers.length}`}
+          detail="Every paper includes marking guidance."
           icon={CheckCircle2}
           accent="bg-emerald-50 text-emerald-700"
         />
       </section>
 
-      <PastPapersBrowser />
+      <PastPapersBrowser papers={papers} completions={completions} />
 
       <section className="rounded-2xl border border-brand-100 bg-brand-50/60 p-5" aria-labelledby="paper-note-title">
         <h2 id="paper-note-title" className="text-sm font-semibold text-brand-900">
           About this demo library
         </h2>
         <p className="mt-1.5 max-w-3xl text-sm leading-6 text-brand-900/80">
-          These records use representative paper codes and titles for product
-          demonstration. They are not official copies of board materials. In a
-          production deployment, paper files would live in Supabase Storage with
-          signed URLs and row-level access policies.
+          Past papers link to official exam board sources. Where official documents
+          cannot be hosted due to copyright, links point to the board&apos;s own website.
         </p>
       </section>
-      <PastPaperLinks papers={_papers.map((x) => ({ id: x.id, paperCode: x.paperCode, title: x.title }))} />
+      <PastPaperLinks papers={papers.map((p) => ({ id: p.id, paperCode: p.paperCode, title: p.title }))} />
     </div>
   );
 }

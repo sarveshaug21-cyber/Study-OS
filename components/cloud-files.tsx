@@ -2,6 +2,35 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 interface DriveFile { id: string; name: string; mimeType: string; size?: string; modifiedTime?: string; }
+
+interface GooglePickerBuilder {
+  addView: (view: unknown) => GooglePickerBuilder;
+  setOAuthToken: (token: string) => GooglePickerBuilder;
+  setDeveloperKey: (key: string) => GooglePickerBuilder;
+  setCallback: (cb: (data: { docs?: unknown[] }) => void) => GooglePickerBuilder;
+  build: () => GooglePicker;
+  setVisible: (visible: boolean) => void;
+}
+interface GooglePicker {
+  setVisible: (visible: boolean) => void;
+}
+interface GooglePickerView {
+  setSelectFolderEnabled: (enabled: boolean) => void;
+}
+interface Gapi {
+  load: (name: string, callback: () => void) => void;
+  picker: {
+    PickerBuilder: new () => GooglePickerBuilder;
+    ViewId: { FOLDERS: unknown };
+    Action: { PICKED: unknown };
+    DocsView: new (viewId: unknown) => GooglePickerView;
+  };
+}
+declare global {
+  interface Window {
+    gapi?: Gapi;
+  }
+}
 export function CloudFiles() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [files, setFiles] = useState<DriveFile[]>([]);
@@ -44,17 +73,23 @@ export function CloudFiles() {
           s.onerror = () => reject(new Error("Failed to load Google API script"));
           document.head.appendChild(s);
         });
-        await new Promise<void>((resolve) => { (window as any).gapi.load("picker", () => resolve()); });
+        await new Promise<void>((resolve) => { window.gapi?.load("picker", () => resolve()); });
         if (cancelled) return;
-        const view = new (window as any).google.picker.DocsView((window as any).google.picker.ViewId.FOLDERS);
+        const DocsView = window.gapi?.picker.DocsView
+        const ViewId = window.gapi?.picker.ViewId
+        if (!DocsView || !ViewId) throw new Error("DocsView or ViewId not available")
+        const view = new DocsView(ViewId.FOLDERS);
         view.setSelectFolderEnabled(true);
-        const picker = new (window as any).google.picker.PickerBuilder()
+        const PickerBuilder = window.gapi?.picker.PickerBuilder
+        if (!PickerBuilder) throw new Error("PickerBuilder not available")
+        const picker = new PickerBuilder()
           .addView(view)
-          .setOAuthToken(tok.accessToken)
-          .setDeveloperKey(apiKey)
-          .setCallback(async (data: any) => {
-            if (data.action === (window as any).google.picker.Action.PICKED) {
-              const folder = data.docs[0];
+          .setOAuthToken(tok.accessToken!)
+          .setDeveloperKey(apiKey!)
+          .setCallback(async (data: { action?: unknown; docs?: unknown[] }) => {
+            if (data.action === window.gapi?.picker.Action.PICKED) {
+              const folder = (data.docs as unknown[])?.[0] as { id: string; name: string } | undefined;
+              if (!folder) throw new Error("No folder selected");
               try {
                 await api("/api/drive/select-folder", { method: "POST", body: JSON.stringify({ folderId: folder.id }) });
                 window.history.replaceState({}, "", "/cloud-files");
@@ -134,9 +169,9 @@ export function CloudFiles() {
   if (connected === false) {
     return (
       <section className="card p-6 space-y-3">
-        <p className="text-sm text-ink-muted">Google Drive is not connected. Connect your alternative Google account (with the existing 'Study OS' folder) to enable cloud file storage.</p>
+        <p className="text-sm text-ink-muted">Google Drive is not connected. Connect your alternative Google account (with the existing &apos;Study OS&apos; folder) to enable cloud file storage.</p>
         <button className="btn-primary" onClick={connect}>Connect Google Drive</button>
-        <p className="text-xs text-ink-muted">Setup: create OAuth credentials in Google Cloud Console, enable Drive API, set redirect URI to your server's /api/drive/callback, and add GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI/GOOGLE_TOKEN_ENCRYPTION_KEY to .env.local.</p>
+        <p className="text-xs text-ink-muted">Setup: create OAuth credentials in Google Cloud Console, enable Drive API, set redirect URI to your server&apos;s /api/drive/callback, and add GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI/GOOGLE_TOKEN_ENCRYPTION_KEY to .env.local.</p>
       </section>
     );
   }

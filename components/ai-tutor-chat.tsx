@@ -14,6 +14,7 @@ import {
   type FormEvent,
 } from "react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 type Message = {
   id: number;
@@ -26,59 +27,32 @@ const initialMessages: Message[] = [
     id: 1,
     role: "assistant",
     content:
-      "Hi Amara. I am your Study OS tutor for this demo. I can explain a concept, help you plan an exam answer, or quiz you on a topic.\n\nWhat are you working on tonight?",
-  },
-  {
-    id: 2,
-    role: "user",
-    content:
-      "Can you explain why exchange surfaces need a steep concentration gradient?",
-  },
-  {
-    id: 3,
-    role: "assistant",
-    content:
-      "A steep gradient means there is a large difference in concentration between two regions. Diffusion continues as long as that difference exists, so keeping the gradient steep keeps the rate of exchange high.\n\nIn the lungs, ventilation replaces stale air and blood flow carries oxygen away. Both processes stop the gradient flattening.\n\nFor a 4-mark answer, link this to Fick's law: rate ∝ surface area × concentration difference ÷ diffusion distance.",
+      "Hi! I'm your Study OS tutor. I can explain concepts, help you plan exam answers, or quiz you on topics. What would you like to work on today?",
   },
 ];
 
-const suggestions = [
-  "Explain Fick's law with a biology example",
-  "Quiz me on integration by parts",
-  "Compare the multi-store and working memory models",
-  "Give me a 6-mark plan for Macbeth ambition",
-];
+type Subject = {
+  id: string;
+  name: string;
+  board: string;
+  level: string;
+};
 
-function createReply(input: string): string {
-  const normalized = input.toLowerCase();
-
-  if (normalized.includes("fick") || normalized.includes("exchange")) {
-    return "Fick's law describes the rate of diffusion:\n\nrate ∝ (surface area × concentration difference) ÷ diffusion distance\n\nA useful exam example is the alveolus. Many alveoli create a large surface area, the squamous epithelium creates a short diffusion distance, and ventilation plus blood flow maintain a steep concentration gradient.\n\nTry to link each adaptation to one variable in the equation rather than listing features.";
-  }
-
-  if (normalized.includes("integration") || normalized.includes("maths")) {
-    return "For integration by parts, start with ∫u dv = uv − ∫v du.\n\nUse LIATE to choose u: logarithms, inverse trig, algebraic, trig, exponential. For ∫x e^(2x) dx, choose u = x and dv = e^(2x) dx.\n\nThat gives ½x e^(2x) − ∫½e^(2x) dx, so the final answer is ½x e^(2x) − ¼e^(2x) + C. Check the sign carefully.";
-  }
-
-  if (normalized.includes("memory") || normalized.includes("psych")) {
-    return "Compare the models by function, not just structure.\n\nThe multi-store model uses separate sensory, short-term and long-term stores linked by attention and rehearsal. The working memory model replaces short-term memory with an active central executive and two slave systems.\n\nFor evaluation, use dual-task evidence to support separate components, then criticise the under-specified central executive. Finish with a judgement about explanatory power.";
-  }
-
-  if (normalized.includes("macbeth") || normalized.includes("ambition")) {
-    return "A strong Macbeth paragraph can follow this shape:\n\n1. Claim: Shakespeare presents ambition as a corrupting force.\n2. Evidence: embed 'vaulting ambition, which o'erleaps itself'.\n3. Analysis: 'vaulting' suggests energy and excess; 'o'erleaps' implies a fatal loss of control.\n4. Context: link to Jacobean anxieties about kingship and the tragic form.\n5. Evaluation: track how ambition moves from possibility to compulsion across the play.\n\nUse two or three quotations in depth rather than many quotations without analysis.";
-  }
-
-  if (normalized.includes("quiz")) {
-    return "Let's try a quick retrieval drill:\n\n1. What does the 'central executive' do in the working memory model?\n2. Give two ways alveoli are adapted for gas exchange.\n3. What is the first step when choosing u and dv for integration by parts?\n\nAnswer in your own words and I will check your reasoning.";
-  }
-
-  return "Here is how I would approach that:\n\nFirst, identify the command word and the number of marks. Then recall the core process or model, and choose one concrete example. Finally, connect the example back to the question in a single closing sentence.\n\nIn this demo I am working from a small set of canned responses. Try one of the suggested prompts for a more detailed explanation.";
-}
+type Topic = {
+  id: string;
+  name: string;
+  description?: string | null;
+};
 
 export function AiTutorChat() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [contextInfo, setContextInfo] = useState<{ yearGroup?: string; examBoard?: string; qualification?: string } | null>(null);
   const nextId = useRef(4);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -93,7 +67,29 @@ export function AiTutorChat() {
     };
   }, []);
 
-  const send = (value: string) => {
+  useEffect(() => {
+    loadSubjects();
+  }, []);
+
+  async function loadSubjects() {
+    try {
+      const d = await api<{ subjects: { id: string; name: string; board: string; level: string }[] }>("/api/subjects");
+      setSubjects(d.subjects ?? []);
+    } catch {
+      // Supabase not configured or no subjects yet
+    }
+  }
+
+  async function loadTopics(subjectId: string) {
+    try {
+      const d = await api<{ topics: { id: string; name: string; description?: string | null }[] }>(`/api/topics?subjectId=${encodeURIComponent(subjectId)}`);
+      setTopics(d.topics ?? []);
+    } catch {
+      setTopics([]);
+    }
+  }
+
+  const send = async (value: string) => {
     const content = value.trim();
     if (!content || thinking) return;
 
@@ -106,10 +102,33 @@ export function AiTutorChat() {
     setMessages((current) => [...current, userMessage]);
     setInput("");
     setThinking(true);
+
     const doReply = async () => {
-      try { const res = await fetch("/api/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: content }) }); if (!res.ok) throw new Error("AI unavailable"); const data = (await res.json()) as { reply?: string }; if (!data.reply) throw new Error("No reply"); return data.reply; } catch { return createReply(content); }
+      try {
+        const res = await fetch("/api/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: content,
+            subjectId: selectedSubjectId,
+            topicId: selectedTopicId,
+          }),
+        });
+        if (!res.ok) throw new Error("AI unavailable");
+        const data = (await res.json()) as { reply?: string };
+        if (!data.reply) throw new Error("No reply");
+        return data.reply;
+      } catch {
+        return createReply(content);
+      }
     };
-    timerRef.current = setTimeout(() => { void doReply().then((reply) => { setMessages((current) => [...current, { id: nextId.current++, role: "assistant", content: reply }]); setThinking(false); }); }, 750);
+
+    timerRef.current = setTimeout(() => {
+      void doReply().then((reply) => {
+        setMessages((current) => [...current, { id: nextId.current++, role: "assistant", content: reply }]);
+        setThinking(false);
+      });
+    }, 750);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -139,8 +158,42 @@ export function AiTutorChat() {
             Study OS Tutor
           </h2>
           <p className="text-xs text-ink-muted">
-            AQA A-level Biology · demo responses
+            {contextInfo ? `${contextInfo.yearGroup} · ${contextInfo.examBoard} · ${contextInfo.qualification}` : "Select subject & topic in settings"}
           </p>
+        </div>
+        <div className="flex-1">
+          <div className="flex gap-2">
+            <select
+              value={selectedSubjectId ?? ""}
+              onChange={(e) => {
+                setSelectedSubjectId(e.target.value);
+                setSelectedTopicId(null);
+                if (e.target.value) loadTopics(e.target.value);
+              }}
+              className="input text-xs"
+              disabled={thinking}
+            >
+              <option value="">Select subject</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.board} · {s.level})
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedTopicId ?? ""}
+              onChange={(e) => setSelectedTopicId(e.target.value)}
+              className="input text-xs"
+              disabled={thinking || !selectedSubjectId}
+            >
+              <option value="">Select topic</option>
+              {topics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <button
           type="button"
@@ -196,7 +249,6 @@ export function AiTutorChat() {
             </div>
           );
         })}
-
         {thinking && (
           <div className="flex items-start gap-2.5">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-100 text-brand-700">
@@ -244,14 +296,15 @@ export function AiTutorChat() {
               type="text"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask about a topic, exam question or revision plan…"
+              placeholder={selectedTopicId ? "Ask about this topic…" : "Select a subject and topic first…"}
               className="input"
               autoComplete="off"
+              disabled={thinking || !selectedSubjectId}
             />
           </div>
           <button
             type="submit"
-            disabled={thinking || input.trim() === ""}
+            disabled={thinking || input.trim() === "" || !selectedSubjectId}
             className="btn-primary h-[42px] px-3 sm:px-4"
             aria-label="Send message"
           >
@@ -260,10 +313,43 @@ export function AiTutorChat() {
           </button>
         </form>
         <p className="mt-2 text-[0.68rem] text-ink-muted">
-          Demo only · simulated tutor responses · check important answers against
-          your specification.
+          Demo only · simulated tutor responses · check important answers against your specification.
         </p>
       </div>
     </section>
   );
+}
+
+const suggestions = [
+  "Explain this concept step by step",
+  "Quiz me on this topic",
+  "Create practice questions",
+  "Explain my incorrect answer",
+  "Create flashcards from this topic",
+];
+
+function createReply(input: string): string {
+  const normalized = input.toLowerCase();
+
+  if (normalized.includes("fick") || normalized.includes("exchange")) {
+    return "Fick's law describes the rate of diffusion:\n\nrate ∝ (surface area × concentration difference) ÷ diffusion distance\n\nA useful exam example is the alveolus. Many alveoli create a large surface area, the squamous epithelium creates a short diffusion distance, and ventilation plus blood flow maintain a steep concentration gradient.\n\nTry to link each adaptation to one variable in the equation rather than listing features.";
+  }
+
+  if (normalized.includes("integration") || normalized.includes("maths")) {
+    return "For integration by parts, start with ∫u dv = uv − ∫v du.\n\nUse LIATE to choose u: logarithms, inverse trig, algebraic, trig, exponential. For ∫x e^(2x) dx, choose u = x and dv = e^(2x) dx.\n\nThat gives ½x e^(2x) − ∫½e^(2x) dx, so the final answer is ½x e^(2x) − ¼e^(2x) + C. Check the sign carefully.";
+  }
+
+  if (normalized.includes("memory") || normalized.includes("psych")) {
+    return "Compare the models by function, not just structure.\n\nThe multi-store model uses separate sensory, short-term and long-term stores linked by attention and rehearsal. The working memory model replaces short-term memory with an active central executive and two slave systems.\n\nFor evaluation, use dual-task evidence to support separate components, then criticise the under-specified central executive. Finish with a judgement about explanatory power.";
+  }
+
+  if (normalized.includes("macbeth") || normalized.includes("ambition")) {
+    return "A strong Macbeth paragraph can follow this shape:\n\n1. Claim: Shakespeare presents ambition as a corrupting force.\n2. Evidence: embed 'vaulting ambition, which o'erleaps itself'.\n3. Analysis: 'vaulting' suggests energy and excess; 'o'erleaps' implies a fatal loss of control.\n4. Context: link to Jacobean anxieties about kingship and the tragic form.\n5. Evaluation: track how ambition moves from possibility to compulsion across the play.\n\nUse two or three quotations in depth rather than many quotations without analysis.";
+  }
+
+  if (normalized.includes("quiz")) {
+    return "Let's try a quick retrieval drill:\n\n1. What does the 'central executive' do in the working memory model?\n2. Give two ways alveoli are adapted for gas exchange.\n3. What is the first step when choosing u and dv for integration by parts?\n\nAnswer in your own words and I will check your reasoning.";
+  }
+
+  return "Here is how I would approach that:\n\nFirst, identify the command word and the number of marks. Then recall the core process or model, and choose one concrete example. Finally, connect the example back to the question in a single closing sentence.\n\nIn this demo I am working from a small set of canned responses. Try one of the suggested prompts for a more detailed explanation.";
 }

@@ -1,37 +1,67 @@
+"use client";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, CalendarDays, Layers, Settings2, Target } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { SubjectsBrowser } from "@/components/subjects-browser";
-import { subjects } from "@/lib/demo-data";
 import { SubjectForm } from "@/components/data-panels";
+import { api } from "@/lib/api";
+import { useEffect, useState } from "react";
+
+type Subject = {
+  id: string;
+  userId: string;
+  name: string;
+  code: string;
+  board: string;
+  level: string;
+  accent: string;
+  targetGrade: string | null;
+  predictedGrade: string | null;
+  examDate: string | null;
+  progress: number;
+};
 
 export const metadata: Metadata = {
   title: "Subjects",
   description: "Manage your GCSE, International GCSE and A-level subjects.",
 };
 
-const averageMastery = Math.round(
-  subjects.reduce((total, subject) => total + subject.progress, 0) /
-    subjects.length,
-);
-const totalTopics = subjects.reduce(
-  (total, subject) => total + subject.topicsTotal,
-  0,
-);
-const cardsDue = subjects.reduce(
-  (total, subject) => total + subject.cardsDue,
-  0,
-);
-
 export default function SubjectsPage() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const d = await api<{ subjects: Subject[] }>("/api/subjects");
+        setSubjects(d.subjects ?? []);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load subjects");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const averageMastery =
+    subjects.length > 0
+      ? Math.round(
+          subjects.reduce((total, s) => total + s.progress, 0) /
+            subjects.length,
+        )
+      : 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Curriculum"
         title="Your subjects"
-        description="Ten active courses spanning all six exam boards and four qualification levels. Progress shown here is realistic demo data."
+        description="Manage your GCSE, International GCSE and A-level subjects."
         actions={
           <>
             <Link href="/settings" className="btn-secondary">
@@ -46,11 +76,17 @@ export default function SubjectsPage() {
         }
       />
 
+      {error && (
+        <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+          {error}
+        </p>
+      )}
+
       <section aria-label="Subject summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Active subjects"
           value={String(subjects.length)}
-          detail="AQA, Pearson Edexcel, OCR, WJEC, Eduqas and CCEA."
+          detail={subjects.length > 0 ? `${subjects.length} active courses` : "Add your first subject"}
           icon={BookOpen}
           accent="bg-brand-50 text-brand-600"
         />
@@ -63,21 +99,21 @@ export default function SubjectsPage() {
         />
         <StatCard
           label="Topics mapped"
-          value={String(totalTopics)}
+          value="0"
           detail="Complete topic outlines ready for notes and cards."
           icon={Layers}
           accent="bg-cyan-50 text-cyan-700"
         />
         <StatCard
           label="Cards due"
-          value={String(cardsDue)}
+          value="0"
           detail="Spread across your spaced-repetition decks."
           icon={CalendarDays}
           accent="bg-amber-50 text-amber-700"
         />
       </section>
 
-      <SubjectsBrowser />
+      <SubjectsBrowser subjects={subjects} />
       <SubjectForm />
     </div>
   );

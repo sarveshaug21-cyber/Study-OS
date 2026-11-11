@@ -1,5 +1,5 @@
 import { getDb } from "@/db";
-import { aiConversations, aiMessages, subjects } from "@/db/schema";
+import { aiConversations, aiMessages, subjects, topics } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { withUser, json, requireString, optionalUuid, assertOwnedConversation, assertOwnedSubject } from "@/lib/api-helpers";
 import { generateAiReply } from "@/lib/ai/provider";
@@ -35,20 +35,26 @@ export async function POST(req: Request) {
     await db.insert(aiMessages).values({ conversationId: convId, role: "user", content: prompt });
     const history = await db.select().from(aiMessages).where(eq(aiMessages.conversationId, convId));
 
-    // Resolve subject context
+    // Resolve subject and topic context
     let subjectName: string | null = null;
     let subjectBoard: string | null = profile.examBoard;
     let subjectQual: string | null = profile.qualification;
+    let topicName: string | null = null;
     if (subjectId) {
       const [s] = await db.select().from(subjects).where(and(eq(subjects.id, subjectId), eq(subjects.userId, userId)));
       if (s) { subjectName = s.name; subjectBoard = s.board; subjectQual = s.level; }
+    }
+    const topicId = optionalUuid(body, "topicId");
+    if (topicId) {
+      const [t] = await db.select().from(topics).where(eq(topics.id, topicId));
+      if (t) { topicName = t.name; }
     }
     const systemPrompt = buildSystemPrompt({
       yearGroup: profile.yearGroup,
       examBoard: subjectBoard ?? profile.examBoard,
       qualification: subjectQual ?? profile.qualification,
       subject: subjectName,
-      topic: typeof body.topic === "string" ? body.topic.slice(0, 200) : null,
+      topic: topicName || (typeof body.topic === "string" ? body.topic.slice(0, 200) : null),
       studentContext: typeof body.context === "string" && body.context.length <= 4000 ? body.context : null,
     });
 

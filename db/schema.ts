@@ -464,6 +464,16 @@ export const topics = pgTable("topics", {
   ...timestamps,
 });
 
+export const topicHierarchy = pgTable("topic_hierarchy", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  parentTopicId: uuid("parent_topic_id").notNull().references(() => topics.id, { onDelete: "cascade" }),
+  childTopicId: uuid("child_topic_id").notNull().references(() => topics.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  ...timestamps,
+}, (table) => ({
+  parentChildIdx: uniqueIndex("topic_hierarchy_parent_child_idx").on(table.parentTopicId, table.childTopicId),
+}));
+
 export const topicProgress = pgTable("topic_progress", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -560,6 +570,47 @@ export const pastPaperCompletions = pgTable("past_paper_completions", {
 });
 
 
+
+
+// ── Phase 1 Cycle 1: Specification versioning, topic hierarchy, mark schemes, examiner reports ──
+export const markSchemeEnum = pgEnum("mark_scheme_type", ["official", "generated"]);
+
+export const specificationVersions = pgTable("specification_versions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  specificationId: uuid("specification_id").notNull().references(() => specifications.id, { onDelete: "cascade" }),
+  version: text("version").notNull(),
+  title: text("title").notNull(),
+  officialUrl: text("official_url"),
+  firstTeaching: timestamp("first_teaching", { withTimezone: true }),
+  firstAssessment: timestamp("first_assessment", { withTimezone: true }),
+  changeSummary: text("change_summary"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  ...timestamps,
+}, (table) => ({
+  specVersionIdx: uniqueIndex("spec_versions_spec_version_idx").on(table.specificationId, table.version),
+}));
+
+export const markSchemes = pgTable("mark_schemes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  pastPaperId: uuid("past_paper_id").notNull().references(() => pastPapers.id, { onDelete: "cascade" }),
+  sourceType: markSchemeEnum("source_type").notNull().default("official"),
+  title: text("title").notNull(),
+  officialUrl: text("official_url"),
+  sourceUrl: text("source_url"),
+  documentHash: text("document_hash"),
+  ...timestamps,
+});
+
+export const examinerReports = pgTable("examiner_reports", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  pastPaperId: uuid("past_paper_id").notNull().references(() => pastPapers.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  officialUrl: text("official_url"),
+  sourceUrl: text("source_url"),
+  documentHash: text("document_hash"),
+  ...timestamps,
+});
+
 // ── Prepared (not yet migrated): Google Drive metadata tables ──
 // These support replacing the notificationsJson blob storage for Drive metadata.
 // Apply via a reviewed migration before switching lib/google-drive-storage.ts to use them.
@@ -594,3 +645,4 @@ export const driveFiles = pgTable("drive_files", {
 }, (table) => ({
   userDriveFileIdx: uniqueIndex("drive_files_user_drive_file_idx").on(table.userId, table.driveFileId),
 }));
+
