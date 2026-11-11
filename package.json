@@ -12,7 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "npx --yes tsx --test tests/validation.test.ts tests/scheduler.test.ts tests/prompts.test.ts tests/import.test.ts tests/google-drive.test.ts"
+    "test": "npx --yes tsx --test tests/validation.test.ts tests/scheduler.test.ts tests/prompts.test.ts tests/import.test.ts tests/google-drive.test.ts tests/drive-shared.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -26,6 +26,11 @@ export interface DriveFileMeta {
   sourceUrl?: string;
   verified?: boolean;
   importedAt: string;
+  folderPath?: string;          // e.g. "Physics/Past Papers/2024" (root = "")
+  source?: "upload" | "drive-import";  // how it entered Cloud Files
+  sourceFolder?: string;        // for drive imports: top-level source folder name
+  status?: "imported" | "duplicate";   // result of the import
+  sourceFileId?: string;        // for drive imports: source Drive file id
 }
 
 interface StoredBlob { googleDrive?: DriveConnection; driveFiles?: DriveFileMeta[]; }

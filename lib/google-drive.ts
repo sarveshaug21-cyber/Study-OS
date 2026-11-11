@@ -210,3 +210,122 @@ export async function downloadFile(accessToken: string, fileId: string): Promise
   const buf = Buffer.from(await res.arrayBuffer());
   return { data: buf, mimeType: meta.mimeType, name: meta.name };
 }
+
+// ── Folder import helpers ────────────────────────────────────────────────
+import {
+  MAX_IMPORT_FILES, MAX_WORKSPACE_EXPORT_BYTES,
+  sanitizeFileName,
+} from "@/lib/drive-shared";
+
+export interface DriveEnumeratedFile {
+  id: string; name: string; mimeType: string; size?: string; md5Checksum?: string; modifiedTime?: string;
+  relativePath: string;
+}
+export interface EnumerateResult {
+  files: DriveEnumeratedFile[];
+  issues: Array<{ path: string; reason: string }>;
+  truncated: boolean;
+  emptyFolders: string[];
+}
+
+function sanitizeSegment(name: string): string {
+  const r = sanitizeFileName(name);
+  return r.ok ? r.name : "folder";
+}
+
+// Recursively enumerate a source folder. Inaccessible sub-folders are recorded
+// and skipped instead of failing the whole enumeration.
+export async function listFolderRecursive(accessToken: string, rootFolderId: string): Promise<EnumerateResult> {
+  const files: DriveEnumeratedFile[] = [];
+  const issues: Array<{ path: string; reason: string }> = [];
+  const emptyFolders: string[] = [];
+  const stack: Array<{ id: string; prefix: string }> = [{ id: rootFolderId, prefix: "" }];
+  while (stack.length > 0) {
+    if (files.length >= MAX_IMPORT_FILES) return { files, issues, truncated: true, emptyFolders };
+    const { id, prefix } = stack.pop()!;
+    let pageToken: string | undefined;
+    let folderFileCount = 0;
+    let hadSubfolder = false;
+    do {
+      const params = new URLSearchParams({
+        q: `'${id}' in parents and trashed=false`,
+        fields: "files(id,name,mimeType,size,md5Checksum,modifiedTime,parents),nextPageToken",
+        pageSize: "1000",
+        orderBy: "folder,name",
+      });
+      if (pageToken) params.set("pageToken", pageToken);
+      const res = await driveFetch(accessToken, `/files?${params.toString()}`);
+      if (!res.ok) {
+        issues.push({ path: prefix || "/", reason: `cannot list folder (${res.status})` });
+        break;
+      }
+      const data = (await res.json()) as { files?: Array<DriveFile & { md5Checksum?: string }>; nextPageToken?: string };
+      for (const f of data.files ?? []) {
+        if (f.mimeType === "application/vnd.google-apps.folder") {
+          stack.push({ id: f.id, prefix: `${prefix}${sanitizeSegment(f.name)}/` });
+          hadSubfolder = true;
+        } else {
+          folderFileCount += 1;
+          files.push({
+            id: f.id, name: f.name, mimeType: f.mimeType, size: f.size, md5Checksum: f.md5Checksum, modifiedTime: f.modifiedTime,
+            relativePath: prefix + sanitizeSegment(f.name),
+          });
+        }
+      }
+      pageToken = data.nextPageToken;
+    } while (pageToken);
+    if (folderFileCount === 0 && !hadSubfolder) emptyFolders.push(prefix || "/");
+    if (files.length >= MAX_IMPORT_FILES) return { files: files.slice(0, MAX_IMPORT_FILES), issues, truncated: true, emptyFolders };
+  }
+  return { files, issues, truncated: false, emptyFolders };
+}
+
+// Find-or-create a folder hierarchy under rootId. Returns the deepest folder id.
+export async function ensureFolderPath(accessToken: string, rootId: string, segments: string[]): Promise<string> {
+  let current = rootId;
+  for (const segment of segments) {
+    const existing = await findFolder(accessToken, segment, current);
+    if (existing) { current = existing.id; continue; }
+    const created = await createFolder(accessToken, segment, current);
+    current = created.id;
+  }
+  return current;
+}
+
+export async function findChildFiles(accessToken: string, parentId: string, name: string): Promise<Array<DriveFile & { md5Checksum?: string }>> {
+  const escaped = name.replace(/'/g, "\\'");
+  const res = await driveFetch(accessToken, `/files?q=${encodeURIComponent(`'${parentId}' in parents and name='${escaped}' and trashed=false`)}&fields=files(id,name,mimeType,size,md5Checksum)&pageSize=10`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { files?: Array<DriveFile & { md5Checksum?: string }> };
+  return data.files ?? [];
+}
+
+export interface CopyResult { id: string; name: string; mimeType: string; size?: string; md5Checksum?: string; }
+
+export async function copyFileToFolder(accessToken: string, sourceFileId: string, destFolderId: string, name: string): Promise<CopyResult> {
+  const res = await driveFetch(accessToken, `/files/${sourceFileId}/copy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, parents: [destFolderId] }),
+  });
+  if (!res.ok) {
+    const err = new Error(`Drive copy failed (${res.status})`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  return (await res.json()) as CopyResult;
+}
+
+export async function exportWorkspaceFile(accessToken: string, fileId: string, exportMimeType: string): Promise<Buffer> {
+  const res = await driveFetch(accessToken, `/files/${fileId}/export?mimeType=${encodeURIComponent(exportMimeType)}`);
+  if (!res.ok) {
+    const err = new Error(`Drive export failed (${res.status})`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  const declared = Number(res.headers.get("content-length") ?? 0);
+  if (declared > MAX_WORKSPACE_EXPORT_BYTES) throw new Error(`exceeds ${MAX_WORKSPACE_EXPORT_BYTES / 1024 / 1024}MB export limit`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > MAX_WORKSPACE_EXPORT_BYTES) throw new Error(`exceeds ${MAX_WORKSPACE_EXPORT_BYTES / 1024 / 1024}MB export limit`);
+  return buf;
+}
