@@ -53,6 +53,7 @@ export function AiTutorChat() {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [contextInfo, setContextInfo] = useState<{ yearGroup?: string; examBoard?: string; qualification?: string } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const nextId = useRef(4);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,7 @@ export function AiTutorChat() {
 
   useEffect(() => {
     loadSubjects();
+    loadContext();
   }, []);
 
   async function loadSubjects() {
@@ -77,6 +79,22 @@ export function AiTutorChat() {
       setSubjects(d.subjects ?? []);
     } catch {
       // Supabase not configured or no subjects yet
+    }
+  }
+
+  async function loadContext() {
+    try {
+      const d = await api<{ studentProfile: { yearGroup?: string | null; examBoard?: string | null; qualification?: string | null } | null }>("/api/settings");
+      const sp = d.studentProfile;
+      if (sp) {
+        setContextInfo({
+          yearGroup: sp.yearGroup ?? undefined,
+          examBoard: sp.examBoard ?? undefined,
+          qualification: sp.qualification ?? undefined,
+        });
+      }
+    } catch {
+      // Settings not available yet; header falls back to the placeholder.
     }
   }
 
@@ -105,6 +123,7 @@ export function AiTutorChat() {
 
     const doReply = async () => {
       try {
+        setAiError(null);
         const res = await fetch("/api/ai", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -114,11 +133,15 @@ export function AiTutorChat() {
             topicId: selectedTopicId,
           }),
         });
-        if (!res.ok) throw new Error("AI unavailable");
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? "AI unavailable");
+        }
         const data = (await res.json()) as { reply?: string };
         if (!data.reply) throw new Error("No reply");
         return data.reply;
-      } catch {
+      } catch (e) {
+        setAiError(e instanceof Error ? e.message : "AI unavailable");
         return createReply(content);
       }
     };
@@ -204,6 +227,12 @@ export function AiTutorChat() {
           Reset
         </button>
       </div>
+
+      {aiError && (
+        <p role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-800">
+          AI provider unavailable — showing demo replies. ({aiError})
+        </p>
+      )}
 
       <div
         className="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-4 sm:p-5"

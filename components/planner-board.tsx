@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Check, Clock3, Plus, Sparkles, X } from "lucide-react";
+import { Plus, Sparkles, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Badge, ProgressBar } from "@/components/ui";
 import { cn } from "@/lib/utils";

@@ -233,6 +233,15 @@ export function PastPapersBrowser({
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex justify-end gap-1.5">
+                          {completion && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-xs font-semibold text-emerald-700"
+                              title={completion.score != null ? `Scored ${completion.score}/${paper.marks}` : "Marked complete"}
+                            >
+                              <CheckCircle2 aria-hidden="true" size={12} />
+                              Done
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={() =>

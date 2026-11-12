@@ -5,24 +5,10 @@ import Link from "next/link";
 import { BookOpen, CalendarDays, Layers, Settings2, Target } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
-import { SubjectsBrowser } from "@/components/subjects-browser";
+import { SubjectsBrowser, type Subject } from "@/components/subjects-browser";
 import { SubjectForm } from "@/components/data-panels";
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
-
-type Subject = {
-  id: string;
-  userId: string;
-  name: string;
-  code: string;
-  board: string;
-  level: string;
-  accent: string;
-  targetGrade: string | null;
-  predictedGrade: string | null;
-  examDate: string | null;
-  progress: number;
-};
 
 export const metadata: Metadata = {
   title: "Subjects",
@@ -114,6 +100,9 @@ export default function SubjectsPage() {
       </section>
 
       <SubjectsBrowser subjects={subjects} />
+      {loading && (
+        <p className="text-sm text-ink-muted">Loading your subjects…</p>
+      )}
       <SubjectForm />
     </div>
   );
