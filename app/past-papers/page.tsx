@@ -11,7 +11,6 @@ import { PageHeader } from "@/components/page-header";
 import { StatCard } from "@/components/ui";
 import { PastPapersBrowser } from "@/components/past-papers-browser";
 import { EXAM_BOARD_CATALOG as EXAM_BOARDS, QUALIFICATIONS as QUALIFICATION_LEVELS } from "@/lib/catalog";
-import { OFFICIAL_RESOURCES } from "@/lib/official-resources";
 import { PastPaperLinks } from "@/components/past-paper-actions";
 import { api } from "@/lib/api";
 

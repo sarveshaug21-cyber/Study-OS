@@ -1,11 +1,9 @@
 "use client";
 
-import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
-  CalendarClock,
   Flame,
   Layers,
   Sparkles,
@@ -14,8 +12,6 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { StatCard, ProgressBar } from "@/components/ui";
-import { MasteryChart } from "@/components/mastery-chart";
-import { TodayPlan } from "@/components/today-plan";
 import { WeeklyStudyChart } from "@/components/weekly-study-chart";
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -97,14 +93,6 @@ export default function DashboardPage() {
     d.setHours(0, 0, 0, 0);
     return d.getTime() === today.getTime() && t.status !== "done";
   });
-
-  const upcomingTasks = tasks
-    .filter((t) => {
-      const d = new Date(t.scheduledFor);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() > today.getTime() && t.status !== "done";
-    })
-    .slice(0, 3);
 
   const upcomingAssessments = questions
     .filter((q) => {

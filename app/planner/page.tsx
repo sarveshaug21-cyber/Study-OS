@@ -11,7 +11,6 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { ProgressBar, StatCard } from "@/components/ui";
 import { PlannerBoard } from "@/components/planner-board";
-import { PlannerStats } from "@/components/planner-stats";
 import { assessments, subjects } from "@/lib/demo-data";
 import { PlannerForm, SessionForm } from "@/components/data-panels";
 

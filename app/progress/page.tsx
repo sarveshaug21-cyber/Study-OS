@@ -1,14 +1,10 @@
 "use client";
 
-import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowDownRight,
-  ArrowRight,
   ArrowUpRight,
   Award,
-  BookOpen,
-  FileText,
   Flame,
   Layers,
   Minus,
@@ -16,7 +12,7 @@ import {
   Timer,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { ProgressBar, StatCard } from "@/components/ui";
+import { StatCard } from "@/components/ui";
 import { MasteryChart } from "@/components/mastery-chart";
 import { api } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -54,48 +50,25 @@ type PracticeAttempt = {
   completedAt: string;
 };
 
-type PracticeQuestion = {
-  id: string;
-  userId: string;
-  subjectId: string;
-  question: string;
-  modelAnswer: string;
-  markScheme: string | null;
-  difficulty: string;
-  marks: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export default function ProgressPage() {
   const [records, setRecords] = useState<ProgressRecord[]>([]);
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [attempts, setAttempts] = useState<PracticeAttempt[]>([]);
-  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [r, s, a, q] = await Promise.all([
-          api<{ records: ProgressRecord[] }>("/api/progress").then(
-            (d) => d.records ?? [],
-          ),
-          api<{ sessions: StudySession[] }>("/api/progress").then(
-            (d) => d.sessions ?? [],
-          ),
-          api<{ attempts: PracticeAttempt[] }>("/api/progress").then(
-            (d) => d.attempts ?? [],
-          ),
-          api<{ questions: PracticeQuestion[] }>("/api/progress").then(
-            (d) => d.questions ?? [],
-          ),
-        ]);
-        setRecords(r);
-        setSessions(s);
-        setAttempts(a);
-        setQuestions(q);
+        // /api/progress returns records, sessions AND attempts in one payload — one call suffices.
+        const d = await api<{
+          records: ProgressRecord[];
+          sessions: StudySession[];
+          attempts: PracticeAttempt[];
+        }>("/api/progress");
+        setRecords(d.records ?? []);
+        setSessions(d.sessions ?? []);
+        setAttempts(d.attempts ?? []);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load progress data");
       } finally {

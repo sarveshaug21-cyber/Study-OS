@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { withUser, json } from "@/lib/api-helpers";
 import { exchangeCode, googleConfigured } from "@/lib/google-drive";
 import { forwardedOrigin } from "@/lib/http";
 import { saveConnection } from "@/lib/google-drive-storage";
