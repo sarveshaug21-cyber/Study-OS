@@ -9,6 +9,7 @@ import {
   Layers,
   LayoutDashboard,
   NotebookPen,
+  Archive,
   Settings,
   Sparkles,
   TrendingUp,
@@ -82,6 +83,12 @@ export const navSections: NavSection[] = [
         label: "Past Papers",
         icon: FileText,
         description: "Papers and mark schemes",
+      },
+      {
+        href: "/exam-materials",
+        label: "Exam Materials",
+        icon: Archive,
+        description: "Official papers, schemes, reports",
       },
       {
         href: "/ai-tutor",

@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 // Security headers for the public demo. Kept permissive enough for the app's
-// inline hydration scripts and the Google Picker/Supabase clients, but locks
-// down framing, MIME sniffing, referrer policy and mixed content.
+// inline hydration scripts, the Google Picker (script from apis.google.com,
+// iframe from docs.google.com) and the Supabase clients, but locks down
+// framing, MIME sniffing, referrer policy and mixed content.
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -19,6 +20,7 @@ const securityHeaders = [
       "img-src 'self' data: https:",
       "font-src 'self' data:",
       "connect-src 'self' https: wss:",
+      "frame-src 'self' https://docs.google.com https://accounts.google.com",
       "frame-ancestors 'none'",
       "form-action 'self'",
       "base-uri 'self'",
