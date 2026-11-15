@@ -22,6 +22,7 @@ export type InlineToken =
   | { type: "strong"; value: InlineToken[] }
   | { type: "emphasis"; value: InlineToken[] }
   | { type: "code"; value: string }
+  | { type: "math"; value: string }
   | { type: "link"; value: InlineToken[]; href: string };
 
 export type MarkdownBlock =
@@ -30,6 +31,8 @@ export type MarkdownBlock =
   | { type: "list"; ordered: boolean; items: InlineToken[][] }
   | { type: "quote"; children: InlineToken[] }
   | { type: "code"; language: string | null; value: string }
+  | { type: "math"; value: string }
+  | { type: "callout"; tone: "note" | "tip" | "warning"; title?: string; children: MarkdownBlock[] }
   | { type: "rule" }
   | { type: "table"; header: InlineToken[][]; rows: InlineToken[][][] };
 
@@ -82,6 +85,17 @@ export function parseInline(input: string): InlineToken[] {
       if (end !== -1) {
         flush();
         tokens.push({ type: "code", value: input.slice(index + 1, end) });
+        index = end + 1;
+        continue;
+      }
+    }
+
+    // Inline math: $formula$ (R8 STEM rendering)
+    if (char === "$" && input[index + 1] !== "$" && input[index - 1] !== "\\") {
+      const end = input.indexOf("$", index + 1);
+      if (end !== -1 && end > index + 1) {
+        flush();
+        tokens.push({ type: "math", value: input.slice(index + 1, end).trim() });
         index = end + 1;
         continue;
       }
@@ -175,6 +189,7 @@ const ORDERED_RE = /^\s*(\d+)[.)]\s+(.*)$/;
 const QUOTE_RE = /^\s*>\s?(.*)$/;
 const RULE_RE = /^\s*([-*_])\s*(?:\1\s*){2,}$/;
 const FENCE_RE = /^\s*```\s*([A-Za-z0-9+#-]*)\s*$/;
+const MATH_BLOCK_RE = /^\s*\$\$\s*$/;
 
 /**
  * Parse Markdown into a block tree.
@@ -204,6 +219,19 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
       }
       index += 1; // consume closing fence
       blocks.push({ type: "code", language, value: body.join("\n") });
+      continue;
+    }
+
+    // Display math block: $$ formula $$ (R8 STEM rendering)
+    if (MATH_BLOCK_RE.test(line)) {
+      const body: string[] = [];
+      index += 1;
+      while (index < lines.length && !MATH_BLOCK_RE.test(lines[index])) {
+        body.push(lines[index]);
+        index += 1;
+      }
+      index += 1; // consume closing $$
+      blocks.push({ type: "math", value: body.join("\n").trim() });
       continue;
     }
 
@@ -358,11 +386,15 @@ export function inlineToText(tokens: InlineToken[]): string {
       switch (token.type) {
         case "text":
         case "code":
+        case "math":
           return token.value;
         case "link":
           return inlineToText(token.value);
-        default:
+        case "strong":
+        case "emphasis":
           return inlineToText(token.value);
+        default:
+          return "";
       }
     })
     .join("");

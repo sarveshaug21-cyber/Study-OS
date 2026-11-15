@@ -32,6 +32,15 @@ function renderInline(tokens: InlineToken[], keyPrefix = "i"): ReactNode {
             {token.value}
           </code>
         );
+      case "math":
+        return (
+          <span
+            key={key}
+            className="inline-block rounded bg-indigo-50/80 px-1.5 py-0.5 font-mono text-[0.9em] font-medium text-indigo-900 border border-indigo-100"
+          >
+            {token.value}
+          </span>
+        );
       case "link":
         return (
           <a
@@ -126,6 +135,15 @@ function renderBlock(block: MarkdownBlock, index: number): ReactNode {
         >
           <code>{block.value}</code>
         </pre>
+      );
+    case "math":
+      return (
+        <div
+          key={index}
+          className="my-4 overflow-x-auto rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 text-center font-mono text-[0.95rem] font-semibold text-indigo-950"
+        >
+          {block.value}
+        </div>
       );
     case "rule":
       return <hr key={index} className="my-6 border-slate-200" />;
