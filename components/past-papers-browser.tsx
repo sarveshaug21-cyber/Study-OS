@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  AlarmClock,
   CheckCircle2,
   Download,
   FileText,
@@ -10,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui";
+import { TimedExamModal } from "@/components/timed-exam-modal";
 
 export type PastPaper = {
   id: string;
@@ -36,6 +38,7 @@ export function PastPapersBrowser({
   const [board, setBoard] = useState<string>("all");
   const [level, setLevel] = useState<string>("all");
   const [notice, setNotice] = useState<string | null>(null);
+  const [activeTimedPaper, setActiveTimedPaper] = useState<PastPaper | null>(null);
 
   const boards = [...new Set(papers.map((p) => p.board))].sort();
   const levels = [...new Set(papers.map((p) => p.level))].sort();
@@ -244,6 +247,15 @@ export function PastPapersBrowser({
                           )}
                           <button
                             type="button"
+                            onClick={() => setActiveTimedPaper(paper)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100"
+                            aria-label={`Start timed mock for ${paper.paperCode}`}
+                          >
+                            <AlarmClock aria-hidden="true" size={12} />
+                            Timed mock
+                          </button>
+                          <button
+                            type="button"
                             onClick={() =>
                               requestDownload(`${paper.paperCode} question paper`)
                           }
@@ -300,6 +312,14 @@ export function PastPapersBrowser({
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
+                    onClick={() => setActiveTimedPaper(paper)}
+                    className="btn flex-1 border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700 hover:bg-brand-100"
+                  >
+                    <AlarmClock aria-hidden="true" size={13} />
+                    Timed mock
+                  </button>
+                  <button
+                    type="button"
                     onClick={() =>
                       requestDownload(`${paper.paperCode} question paper`)
                   }
@@ -322,6 +342,13 @@ export function PastPapersBrowser({
             ))}
           </div>
         </>
+      )}
+
+      {activeTimedPaper && (
+        <TimedExamModal
+          paper={activeTimedPaper}
+          onClose={() => setActiveTimedPaper(null)}
+        />
       )}
     </div>
   );

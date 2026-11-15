@@ -26,7 +26,9 @@ export function FlashcardStudy() {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [againCount, setAgainCount] = useState(0);
-  const [gotItCount, setGotItCount] = useState(0);
+  const [hardCount, setHardCount] = useState(0);
+  const [goodCount, setGoodCount] = useState(0);
+  const [easyCount, setEasyCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,16 +48,34 @@ export function FlashcardStudy() {
   const complete = index >= cards.length;
   const progress = cards.length ? Math.round((index / cards.length) * 100) : 0;
 
-  const advance = async (remembered: boolean) => {
-    if (remembered) setGotItCount((c) => c + 1); else setAgainCount((c) => c + 1);
+  const advance = async (rating: "again" | "hard" | "good" | "easy") => {
+    if (rating === "again") setAgainCount((c) => c + 1);
+    else if (rating === "hard") setHardCount((c) => c + 1);
+    else if (rating === "good") setGoodCount((c) => c + 1);
+    else if (rating === "easy") setEasyCount((c) => c + 1);
+
     setRevealed(false);
     setIndex((c) => c + 1);
     if (card) {
-      try { await api("/api/flashcards", { method: "PUT", body: JSON.stringify({ cardId: card.id, correct: remembered }) }); } catch { /* demo mode: ignore */ }
+      try {
+        await api("/api/flashcards", {
+          method: "PUT",
+          body: JSON.stringify({ cardId: card.id, rating, correct: rating !== "again" }),
+        });
+      } catch {
+        /* demo mode: ignore */
+      }
     }
   };
 
-  const restart = () => { setIndex(0); setRevealed(false); setAgainCount(0); setGotItCount(0); };
+  const restart = () => {
+    setIndex(0);
+    setRevealed(false);
+    setAgainCount(0);
+    setHardCount(0);
+    setGoodCount(0);
+    setEasyCount(0);
+  };
 
   if (loading) return <section className="card p-5 sm:p-6"><p className="text-sm text-ink-muted">Loading cards…</p></section>;
   if (!cards.length) return <section className="card p-5 sm:p-6"><p className="text-sm text-ink-muted">No cards due. {error ? `(${error})` : ""}</p></section>;
@@ -78,9 +98,11 @@ export function FlashcardStudy() {
           <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-600 text-white"><Check aria-hidden="true" size={22} /></span>
           <h3 className="mt-4 text-xl font-semibold tracking-tight">Session complete</h3>
           <p className="mt-1 max-w-sm text-sm text-ink-muted">You reviewed all {cards.length} cards. Ratings were persisted where the database is connected.</p>
-          <div className="mt-4 flex gap-2 text-sm">
-            <span className="chip border-emerald-200 bg-white text-emerald-700">{gotItCount} got it</span>
-            <span className="chip border-amber-200 bg-white text-amber-700">{againCount} to revisit</span>
+          <div className="mt-4 flex flex-wrap gap-2 text-sm">
+            <span className="chip border-emerald-200 bg-white text-emerald-700">{easyCount} easy</span>
+            <span className="chip border-sky-200 bg-white text-sky-700">{goodCount} good</span>
+            <span className="chip border-amber-200 bg-white text-amber-700">{hardCount} hard</span>
+            <span className="chip border-rose-200 bg-white text-rose-700">{againCount} again</span>
           </div>
           <button type="button" onClick={restart} className="btn-secondary mt-5"><RotateCcw aria-hidden="true" size={15} />Study again</button>
         </div>
@@ -100,9 +122,11 @@ export function FlashcardStudy() {
           </div>
           <div className="mt-4">
             {revealed ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => advance(false)} className="btn border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"><Undo2 aria-hidden="true" size={16} />Again</button>
-                <button type="button" onClick={() => advance(true)} className="btn bg-emerald-600 text-white hover:bg-emerald-700"><ThumbsUp aria-hidden="true" size={16} />Got it</button>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <button type="button" onClick={() => advance("again")} className="btn border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"><Undo2 aria-hidden="true" size={15} />Again (&lt;1d)</button>
+                <button type="button" onClick={() => advance("hard")} className="btn border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">Hard (1d)</button>
+                <button type="button" onClick={() => advance("good")} className="btn border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"><ThumbsUp aria-hidden="true" size={15} />Good</button>
+                <button type="button" onClick={() => advance("easy")} className="btn bg-emerald-600 text-white hover:bg-emerald-700"><Check aria-hidden="true" size={15} />Easy (bonus)</button>
               </div>
             ) : (
               <button type="button" onClick={() => setRevealed(true)} className="btn-primary w-full"><Eye aria-hidden="true" size={16} />Show answer</button>
