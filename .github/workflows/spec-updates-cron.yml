@@ -1,0 +1,28 @@
+name: Periodic Specification Updates Check
+
+on:
+  schedule:
+    # Runs at 06:00 UTC on the 1st day of every month
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+jobs:
+  check-spec-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Study OS Specification Updates Endpoint
+        env:
+          APP_URL: ${{ secrets.APP_PUBLIC_URL || 'https://hp-pavillion.tail7ec2e2.ts.net' }}
+        run: |
+          echo "Checking specification updates at $APP_URL/api/spec-updates..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" "$APP_URL/api/spec-updates")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          echo "Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            echo "Spec updates check successful."
+          else
+            echo "Spec updates check failed with status $HTTP_CODE"
+            exit 1
+          fi
