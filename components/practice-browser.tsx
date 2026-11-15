@@ -8,6 +8,7 @@ import {
   CircleDashed,
   Search,
   SlidersHorizontal,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -18,6 +19,7 @@ import {
 } from "@/lib/demo-data";
 import { Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { findCommandWord } from "@/lib/specifications";
 
 const difficultyStyles: Record<Difficulty, string> = {
   easy: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -28,7 +30,10 @@ const difficultyStyles: Record<Difficulty, string> = {
 function PracticeCard({ question }: { question: PracticeQuestion }) {
   const [revealed, setRevealed] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  const [showExaminerTip, setShowExaminerTip] = useState(false);
   const answerId = useId();
+
+  const command = findCommandWord(question.question);
 
   return (
     <article className="card p-5">
@@ -48,6 +53,11 @@ function PracticeCard({ question }: { question: PracticeQuestion }) {
         <Badge className={difficultyStyles[question.difficulty]}>
           {question.difficulty}
         </Badge>
+        {command && (
+          <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700">
+            {command.word}
+          </Badge>
+        )}
         <span className="ml-auto text-xs font-semibold text-ink-muted">
           {question.marks} {question.marks === 1 ? "mark" : "marks"}
         </span>
@@ -93,7 +103,27 @@ function PracticeCard({ question }: { question: PracticeQuestion }) {
           )}
           {attempted ? "Attempted" : "Mark attempted"}
         </button>
+        {command && (
+          <button
+            type="button"
+            onClick={() => setShowExaminerTip((c) => !c)}
+            className="btn text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
+          >
+            <Sparkles aria-hidden="true" size={14} />
+            {showExaminerTip ? "Hide examiner tip" : "Examiner technique tip"}
+          </button>
+        )}
       </div>
+
+      {command && showExaminerTip && (
+        <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3.5 text-xs text-indigo-900">
+          <p className="font-semibold uppercase tracking-wider text-indigo-800">
+            Examiner Command Expectation: {command.word}
+          </p>
+          <p className="mt-1 text-indigo-950 font-medium">{command.intent}</p>
+          <p className="mt-0.5 text-indigo-800">What full marks look like: {command.looksLike}</p>
+        </div>
+      )}
 
       {revealed && (
         <div id={answerId} className="mt-4 space-y-4">
