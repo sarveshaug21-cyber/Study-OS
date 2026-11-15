@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+  AnyPgColumn,
   boolean,
   index,
   integer,
@@ -452,17 +453,65 @@ export const specifications = pgTable("specifications", {
   ...timestamps,
 });
 
+/** Depth of a topic in the subject → unit → chapter → topic hierarchy. */
+export const topicLevelEnum = pgEnum("topic_level", [
+  "subject",
+  "unit",
+  "chapter",
+  "topic",
+]);
+
 export const topics = pgTable("topics", {
   id: uuid("id").defaultRandom().primaryKey(),
   specificationId: uuid("specification_id").references(() => specifications.id, { onDelete: "cascade" }),
   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   subjectId: uuid("subject_id").references(() => subjects.id, { onDelete: "cascade" }),
+  /** Depth in the subject → unit → chapter → topic hierarchy. */
+  level: topicLevelEnum("level").notNull().default("topic"),
+  /** Direct parent in the hierarchy (a unit's parent is its subject node, etc.). */
+  parentTopicId: uuid("parent_topic_id").references((): AnyPgColumn => topics.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
   isOfficial: boolean("is_official").notNull().default(false),
   ...timestamps,
-});
+}, (table) => ({
+  subjectIdx: index("topics_subject_id_idx").on(table.subjectId),
+  parentIdx: index("topics_parent_topic_id_idx").on(table.parentTopicId),
+  levelIdx: index("topics_level_idx").on(table.level),
+}));
+
+export const learningObjectives = pgTable(
+  "learning_objectives",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    specificationId: uuid("specification_id")
+      .notNull()
+      .references(() => specifications.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id").references(() => topics.id, {
+      onDelete: "cascade",
+    }),
+    /** Null for shared catalogue objectives, set for student-owned ones. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    /** Reference code within the specification, e.g. "7402.1.1". */
+    code: text("code").notNull(),
+    statement: text("statement").notNull(),
+    commandWord: text("command_word"),
+    assessmentObjective: text("assessment_objective"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    /** True only once checked against the awarding body's own document. */
+    isVerified: boolean("is_verified").notNull().default(false),
+    ...timestamps,
+  },
+  (table) => ({
+    specCodeIdx: uniqueIndex("learning_objectives_spec_code_idx").on(
+      table.specificationId,
+      table.code,
+    ),
+    topicIdx: index("learning_objectives_topic_id_idx").on(table.topicId),
+    userIdx: index("learning_objectives_user_id_idx").on(table.userId),
+  }),
+);
 
 export const topicHierarchy = pgTable("topic_hierarchy", {
   id: uuid("id").defaultRandom().primaryKey(),

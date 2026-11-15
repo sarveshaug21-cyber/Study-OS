@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CircleHelp,
   FileText,
+  GitBranch,
   Layers,
   LayoutDashboard,
   NotebookPen,
@@ -59,6 +60,12 @@ export const navSections: NavSection[] = [
         label: "Research",
         icon: Library,
         description: "Open Notebook powered research",
+      },
+      {
+        href: "/prerequisites",
+        label: "Learning sequence",
+        icon: GitBranch,
+        description: "Topic dependencies and order",
       },
       {
         href: "/notes",

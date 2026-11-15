@@ -1,21 +1,18 @@
-export const EXAM_BOARDS = [
-  "AQA",
-  "Pearson Edexcel",
-  "OCR",
-  "WJEC",
-  "Eduqas",
-  "CCEA",
-] as const;
+// The exam board and qualification lists live in lib/qualifications.ts so that
+// the demo workspace and the real catalogue can never disagree.
+export {
+  EXAM_BOARDS,
+  QUALIFICATION_LEVELS,
+  type ExamBoard,
+  type QualificationLevel,
+} from "@/lib/qualifications";
 
-export const QUALIFICATION_LEVELS = [
-  "GCSE",
-  "International GCSE",
-  "A-level",
-  "International A-level",
-] as const;
+import {
+  EXAM_BOARDS,
+  type ExamBoard,
+  type QualificationLevel,
+} from "@/lib/qualifications";
 
-export type ExamBoard = (typeof EXAM_BOARDS)[number];
-export type QualificationLevel = (typeof QUALIFICATION_LEVELS)[number];
 export type Difficulty = "easy" | "medium" | "hard";
 export type Priority = "low" | "medium" | "high";
 
@@ -192,7 +189,7 @@ export const subjects: Subject[] = [
     name: "Mathematics",
     code: "9MA0",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     accent: "#2563EB",
     progress: 64,
     targetGrade: "A",
@@ -432,7 +429,7 @@ export const notes: Note[] = [
     subjectId: "maths-edexcel",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     accent: "#2563EB",
     updated: "Yesterday",
     readingMinutes: 5,
@@ -801,7 +798,7 @@ export const flashcardDecks: FlashcardDeck[] = [
     subjectId: "maths-edexcel",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     title: "Integration techniques",
     accent: "#2563EB",
     cards: 36,
@@ -987,7 +984,7 @@ export const practiceQuestions: PracticeQuestion[] = [
     subjectId: "maths-edexcel",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     accent: "#2563EB",
     question:
       "Use integration by parts to find ∫ x e^(2x) dx. Show all of your working.",
@@ -1191,7 +1188,7 @@ export const pastPapers: PastPaper[] = [
     subjectId: "maths-edexcel",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     year: 2025,
     session: "June",
     paperCode: "9MA0/01",
@@ -1338,7 +1335,7 @@ export const plannerTasks: PlannerTask[] = [
     title: "Integration by parts — Set B",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     accent: "#2563EB",
     duration: 50,
     priority: "high",
@@ -1443,7 +1440,7 @@ export const plannerTasks: PlannerTask[] = [
     title: "Timed Pure Paper 1",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     accent: "#2563EB",
     duration: 120,
     priority: "high",
@@ -1488,7 +1485,7 @@ export const plannerTasks: PlannerTask[] = [
     title: "Maths corrections review",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     accent: "#2563EB",
     duration: 30,
     priority: "medium",
@@ -1535,7 +1532,7 @@ export const assessments: Assessment[] = [
     title: "Mathematics Pure Paper 1",
     subject: "Mathematics",
     board: "Pearson Edexcel",
-    level: "A-level",
+    level: "International A-level",
     date: "Mon 23 Nov",
     daysAway: 15,
     accent: "#2563EB",

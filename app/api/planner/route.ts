@@ -1,7 +1,7 @@
 import { getDb } from "@/db";
 import { plannerTasks } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { withUser, json, requireString, requireUuid, optionalUuid, optionalIntInRange, assertOwnedSubject } from "@/lib/api-helpers";
+import { withUser, json, requireString, requireUuid, optionalUuid, optionalIntInRange, assertOwnedSubject, requireEnum } from "@/lib/api-helpers";
 const STATUSES = ["todo", "in_progress", "done"] as const;
 const PRIORITIES = ["low", "medium", "high"] as const;
 export async function GET() {
@@ -16,10 +16,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const subjectId = optionalUuid(body, "subjectId");
     if (subjectId) await assertOwnedSubject(db, userId, subjectId);
-    const status = body.status === undefined ? "todo" : body.status;
-    if (!(STATUSES as readonly string[]).includes(status)) throw Object.assign(new Error("Invalid status"), { status: 400 });
-    const priority = body.priority === undefined ? "medium" : body.priority;
-    if (!(PRIORITIES as readonly string[]).includes(priority)) throw Object.assign(new Error("Invalid priority"), { status: 400 });
+    const status = body.status === undefined ? "todo" : requireEnum(body.status, STATUSES, "status");
+    const priority = body.priority === undefined ? "medium" : requireEnum(body.priority, PRIORITIES, "priority");
     const scheduled = body.scheduledFor ? new Date(body.scheduledFor) : null;
     if (!scheduled || Number.isNaN(scheduled.getTime())) throw Object.assign(new Error("scheduledFor must be a valid date"), { status: 400 });
     const estimated = optionalIntInRange(body, "estimatedMinutes", 1, 10080) ?? 30;
@@ -34,12 +32,12 @@ export async function PATCH(req: Request) {
     const id = requireUuid(body, "id");
     const patch: Record<string, unknown> = { updatedAt: new Date() };
     if (body.status !== undefined) {
-      if (!(STATUSES as readonly string[]).includes(body.status)) throw Object.assign(new Error("Invalid status"), { status: 400 });
+      requireEnum(body.status, STATUSES, "status");
       patch.status = body.status;
     }
     if (body.title !== undefined) patch.title = requireString(body, "title", 500);
     if (body.priority !== undefined) {
-      if (!(PRIORITIES as readonly string[]).includes(body.priority)) throw Object.assign(new Error("Invalid priority"), { status: 400 });
+      requireEnum(body.priority, PRIORITIES, "priority");
       patch.priority = body.priority;
     }
     if (body.scheduledFor !== undefined) {

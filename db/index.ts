@@ -4,23 +4,20 @@ import * as schema from "./schema";
 
 type Database = PostgresJsDatabase<typeof schema>;
 
-let database: Database | undefined;
+const g = globalThis as typeof globalThis & { _studyDb?: Database };
 
 export function getDb(): Database {
   const connectionString = process.env.DATABASE_URL;
-
   if (!connectionString) {
     throw new Error(
       "DATABASE_URL is not configured. Copy .env.example to .env.local and add your Supabase connection string.",
     );
   }
-
-  if (!database) {
+  if (!g._studyDb) {
     const client = postgres(connectionString, { prepare: false });
-    database = drizzle(client, { schema });
+    g._studyDb = drizzle(client, { schema });
   }
-
-  return database;
+  return g._studyDb;
 }
 
 export { schema };

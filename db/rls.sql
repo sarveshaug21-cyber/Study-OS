@@ -81,3 +81,37 @@ create policy "qualifications read" on public.qualifications for select using (a
 create policy "specifications read" on public.specifications for select using (auth.uid() is not null);
 create policy "past_papers read" on public.past_papers for select using (auth.uid() is not null);
 create policy "spec_updates read" on public.spec_updates for select using (auth.uid() is not null);
+
+-- ── Phase 2 additions (tables added after the initial migration) ──
+
+alter table public.topic_hierarchy enable row level security;
+alter table public.specification_versions enable row level security;
+alter table public.mark_schemes enable row level security;
+alter table public.examiner_reports enable row level security;
+alter table public.google_drive_connections enable row level security;
+alter table public.drive_files enable row level security;
+
+-- Topic edges are visible only when BOTH endpoints are visible to the reader.
+create policy "topic_hierarchy visible edges" on public.topic_hierarchy for select
+  using (
+    exists (select 1 from public.topics p
+            where p.id = parent_topic_id
+              and (p.user_id = auth.uid() or (p.user_id is null and p.is_official = true)))
+    and exists (select 1 from public.topics c
+                where c.id = child_topic_id
+                  and (c.user_id = auth.uid() or (c.user_id is null and c.is_official = true)))
+  );
+create policy "topic_hierarchy own write" on public.topic_hierarchy for all
+  using (exists (select 1 from public.topics p where p.id = parent_topic_id and p.user_id = auth.uid()))
+  with check (exists (select 1 from public.topics p where p.id = parent_topic_id and p.user_id = auth.uid()));
+
+-- Catalogue-like reference tables: read-only for authenticated users.
+create policy "specification_versions read" on public.specification_versions for select using (auth.uid() is not null);
+create policy "mark_schemes read" on public.mark_schemes for select using (auth.uid() is not null);
+create policy "examiner_reports read" on public.examiner_reports for select using (auth.uid() is not null);
+
+-- Google Drive integration: strictly per-user.
+create policy "google_drive_connections own" on public.google_drive_connections for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "drive_files own" on public.drive_files for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());

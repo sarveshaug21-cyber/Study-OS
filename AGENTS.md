@@ -46,7 +46,7 @@ Next.js 15 App Router + React 19 + TS. Drizzle ORM + Supabase (Postgres/Auth). D
 - Tests use `node:test` via tsx; add tests under `tests/*.test.ts` and update the `test` script.
 
 ## Gotchas
-- `middleware.ts` protected list does not include `/research` or `/specifications` (intentional — they're accessible). Add new protected routes to `PROTECTED` array.
+- `middleware.ts` `PROTECTED` array includes `/research` and `/specifications` — authenticated routes. To make a route public, omit it from `PROTECTED`. To add a new protected route, add it to the `PROTECTED` array.
 - `db:push` may hang on Supabase pooler — prefer applying migration SQL directly if needed.
 - Open Notebook container may lose connectivity to SurrealDB after firewall resets; see `/etc/systemd/system/study-portal-docker-firewall.service` (PartOf=docker.service).
 - Never commit `.env.local`, `node_modules`, `.next`, or build artifacts. `.gitignore` already covers them.

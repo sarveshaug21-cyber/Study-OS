@@ -12,6 +12,27 @@ export function hfConfigured(): boolean {
   return Boolean(process.env.HF_TOKEN);
 }
 
+/**
+ * Access gate for the exam-materials archive.
+ *
+ * The archived GCSE papers are copyrighted by the exam boards. They are stored
+ * in a private dataset, but this app is reachable over a public URL, so serving
+ * them to any registered account would amount to redistribution. Only emails
+ * listed in EXAM_MATERIALS_EMAILS may browse or download them; if the variable
+ * is unset the archive is closed to everyone (deny-by-default).
+ */
+export function examMaterialsAllowed(email: string | undefined): boolean {
+  const allow = (process.env.EXAM_MATERIALS_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (!allow.length) {
+    console.warn("[api] EXAM_MATERIALS_EMAILS not configured — exam materials are inaccessible to all users.");
+    return false;
+  }
+  return !!email && allow.includes(email.toLowerCase());
+}
+
 function hfToken(): string {
   const t = process.env.HF_TOKEN;
   if (!t) throw new Error("HF_TOKEN is not configured (server-only).");

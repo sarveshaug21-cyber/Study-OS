@@ -4,6 +4,8 @@ import { requireDriveAccess } from "@/lib/google-drive-auth";
 export async function GET() {
   return withUser(async () => {
     const { accessToken } = await requireDriveAccess();
-    return json({ accessToken });
+    const res = json({ accessToken });
+    res.headers.set("Cache-Control", "no-store");
+    return res;
   });
 }

@@ -2,6 +2,18 @@ import { getDb } from "@/db";
 import { subjects } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { withUser, json, requireString, assertUuidParam } from "@/lib/api-helpers";
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return withUser(async (userId) => {
+    const { id } = await ctx.params;
+    assertUuidParam(id);
+    const [row] = await getDb()
+      .select()
+      .from(subjects)
+      .where(and(eq(subjects.id, id), eq(subjects.userId, userId)));
+    if (!row) return json({ error: "Not found" }, 404);
+    return json({ subject: row });
+  });
+}
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   return withUser(async (userId) => {
     const { id } = await ctx.params;

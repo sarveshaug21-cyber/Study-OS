@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { withUser, json } from "@/lib/api-helpers";
-import { hfConfigured, fetchHfFile } from "@/lib/hf";
+import { hfConfigured, fetchHfFile, examMaterialsAllowed } from "@/lib/hf";
 import { sanitizeHfPath } from "@/lib/hf-shared";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   return withUser(async () => {
     if (!hfConfigured()) return json({ error: "Hugging Face viewer not configured (HF_TOKEN missing on server)." }, 503);
+    // Archived exam papers are board-copyrighted; only allowlisted accounts may download them.
+    const user = await getCurrentUser();
+    if (!examMaterialsAllowed(user?.email)) return json({ error: "Exam materials are not enabled for this account." }, 403);
     const url = new URL(req.url);
     const raw = url.searchParams.get("path");
     const path = sanitizeHfPath(raw);

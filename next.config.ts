@@ -15,6 +15,8 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
+      // 'unsafe-inline' is required for Next.js App Router inline hydration scripts.
+      // The proper fix is nonces (see Next.js docs), deferred to a future hardening pass.
       "script-src 'self' 'unsafe-inline' https:",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",

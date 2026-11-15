@@ -1,5 +1,7 @@
 // Shared, server-side prompt architecture for Study OS AI.
 // One core prompt + four year profiles + contextual layers. Never sent to the client.
+import { defaultYearGroupForQualification } from "@/lib/qualifications";
+
 export const YEAR_GROUPS = ["Year 10", "Year 11", "Year 12", "Year 13"] as const;
 export type YearGroup = (typeof YEAR_GROUPS)[number];
 export function isYearGroup(v: unknown): v is YearGroup {
@@ -92,7 +94,6 @@ export function buildSystemPrompt(ctx: PromptContext): string {
 
 export function yearGroupForQualification(q: string | null | undefined): YearGroup | null {
   if (!q) return null;
-  if (q === "GCSE" || q === "International GCSE") return "Year 11";
-  if (q === "A-level" || q === "International A-level") return "Year 13";
-  return null;
+  const group = defaultYearGroupForQualification(q);
+  return isYearGroup(group) ? group : null;
 }

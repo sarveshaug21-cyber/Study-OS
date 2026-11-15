@@ -1,7 +1,22 @@
 import { getDb } from "@/db";
 import { notes } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { withUser, json, requireString, assertUuidParam, optionalBoolean } from "@/lib/api-helpers";
+import { withUser, json, requireString, assertUuidParam, optionalBoolean, notFound } from "@/lib/api-helpers";
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  return withUser(async (userId) => {
+    const { id } = await ctx.params;
+    assertUuidParam(id);
+    const [row] = await getDb()
+      .select()
+      .from(notes)
+      .where(and(eq(notes.id, id), eq(notes.userId, userId)));
+    if (!row) return notFound("Note not found");
+    return json({ note: row });
+  });
+}
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return withUser(async (userId) => {
     const { id } = await ctx.params;

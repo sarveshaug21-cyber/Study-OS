@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { notes, subjects } from "@/lib/demo-data";
 import { Badge, EmptyState } from "@/components/ui";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { noteToMarkdown } from "@/lib/note-content";
 import { cn } from "@/lib/utils";
 
 export function NotesWorkspace() {
@@ -42,6 +44,16 @@ export function NotesWorkspace() {
 
   const selectedNote =
     filtered.find((note) => note.id === selectedId) ?? filtered[0];
+
+  // Demo notes are rendered through the same Markdown pipeline as notes the
+  // student writes, so the reading experience is identical either way.
+  const selectedNoteMarkdown = useMemo(
+    () =>
+      selectedNote
+        ? noteToMarkdown(selectedNote.sections, selectedNote.keyTerms)
+        : "",
+    [selectedNote],
+  );
 
   const hasFilters = query !== "" || subjectFilter !== "all";
 
@@ -235,50 +247,9 @@ export function NotesWorkspace() {
                 ))}
               </div>
 
-              <div className="mt-7 space-y-7">
-                {selectedNote.sections.map((section) => (
-                  <section key={section.heading}>
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-700">
-                      {section.heading}
-                    </h3>
-                    <p className="mt-2 text-sm leading-7 text-ink-soft">
-                      {section.body}
-                    </p>
-                    {section.bullets && (
-                      <ul className="mt-3 space-y-2">
-                        {section.bullets.map((bullet) => (
-                          <li
-                            key={bullet}
-                            className="flex gap-2.5 text-sm leading-6 text-ink-soft"
-                          >
-                            <span
-                              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400"
-                              aria-hidden="true"
-                            />
-                            <span>{bullet}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                ))}
+              <div className="mt-7">
+                <MarkdownRenderer content={selectedNoteMarkdown} />
               </div>
-
-              <section className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-                <h3 className="text-sm font-semibold tracking-tight">
-                  Key terms
-                </h3>
-                <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {selectedNote.keyTerms.map((term) => (
-                    <div key={term.term} className="rounded-xl bg-white p-3 shadow-sm">
-                      <dt className="text-sm font-semibold text-ink">{term.term}</dt>
-                      <dd className="mt-1 text-xs leading-5 text-ink-muted">
-                        {term.definition}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
 
               <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
                 <Link href="/practice" className="btn-primary">
