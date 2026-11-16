@@ -32,3 +32,20 @@ export function hfFileHref(path: string, download = false): string {
   const enc = path.split("/").map(encodeURIComponent).join("/");
   return `/api/hf/file?path=${enc}${download ? "&download=1" : ""}`;
 }
+
+/**
+ * Access gate for the exam-materials archive.
+ *
+ * The archived GCSE papers are copyrighted by the exam boards. They live in a
+ * private dataset, but the app is reachable over a public URL, so serving them
+ * to any registered account would amount to redistribution. Only emails listed
+ * in EXAM_MATERIALS_EMAILS may browse or download them. Unset = nobody.
+ */
+export function examMaterialsAllowed(email: string | undefined, allowListEnv: string | undefined): boolean {
+  const allow = (allowListEnv ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (!allow.length) return false;
+  return !!email && allow.includes(email.toLowerCase());
+}

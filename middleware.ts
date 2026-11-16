@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { rateLimit } from "@/lib/rate-limit";
 
 const PROTECTED = ["/", "/subjects", "/notes", "/flashcards", "/practice", "/past-papers", "/ai-tutor", "/planner", "/progress", "/settings", "/cloud-files", "/import", "/research", "/specifications", "/exam-materials"];
 const isProtected = (p: string) => PROTECTED.some((r) => r === "/" ? p === "/" : (p === r || p.startsWith(r + "/")));
@@ -35,6 +36,13 @@ export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const { pathname } = request.nextUrl;
+
+  // Rate-limit API routes before auth checks
+  if (pathname.startsWith("/api/")) {
+    const limited = rateLimit(request);
+    if (limited) return limited;
+  }
+
   if (!isProtected(pathname)) return NextResponse.next();
   // Fail closed: if auth is not configured, do not silently allow protected pages.
   if (!url || !anon) {

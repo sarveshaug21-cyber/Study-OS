@@ -1,0 +1,18 @@
+# Keep the build context small and free of secrets.
+# Dependencies are installed in the `deps` stage from the lockfile; the builder
+# regenerates .next from source; .env.local holds real credentials and must
+# never be baked into an image layer.
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+.DS_Store
+coverage
+.vscode
+.idea
+docs/api.yaml

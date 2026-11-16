@@ -14,7 +14,7 @@ export default function ExamMaterialsPage() {
       <PageHeader
         eyebrow="Workspace"
         title="Exam materials"
-        description="Public GCSE papers, mark schemes and examiner reports from AQA, OCR, CCEA and Pearson Edexcel, served from a private Hugging Face archive. Boards' own sources remain the authoritative reference."
+        description="Public GCSE papers, mark schemes and examiner reports from AQA, OCR, CCEA, Pearson Edexcel, WJEC and Eduqas, served from a private Hugging Face archive. Boards' own sources remain the authoritative reference."
       />
       <section className="card p-5">
         <ExamMaterialsBrowser />
@@ -26,6 +26,8 @@ export default function ExamMaterialsPage() {
           <li>OCR GCSE — <strong>3,369</strong> PDFs (papers, mark schemes, examiner reports)</li>
           <li>CCEA GCSE — <strong>4,586</strong> PDFs plus <strong>58</strong> MP3/ZIP assets</li>
           <li>Pearson Edexcel GCSE — <strong>2,747</strong> files (papers, mark schemes, examiner reports, listening audio) across the ten most-studied subjects</li>
+          <li>WJEC GCSE — <strong>1,892</strong> PDFs (papers, mark schemes, examiner reports)</li>
+          <li>Eduqas GCSE — <strong>1,543</strong> PDFs (papers, mark schemes, examiner reports)</li>
         </ul>
         <p className="mt-3 flex items-center gap-2 text-xs text-brand-900/75"><FileText aria-hidden="true" size={12} /> Files stream straight from the private archive; they never touch this server&apos;s disk.</p>
       </section>

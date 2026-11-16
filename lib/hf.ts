@@ -1,5 +1,5 @@
 import "server-only";
-import { HF_REPO, HF_ROOT, formatBytes, sanitizeHfPath, splitHfPath } from "@/lib/hf-shared";
+import { HF_REPO, HF_ROOT, formatBytes, sanitizeHfPath, splitHfPath, examMaterialsAllowed as examMaterialsAllowedPure } from "@/lib/hf-shared";
 
 const TREE_API = "https://huggingface.co/api/datasets";
 const FILE_RESOLVE = "https://huggingface.co/datasets";
@@ -22,15 +22,11 @@ export function hfConfigured(): boolean {
  * is unset the archive is closed to everyone (deny-by-default).
  */
 export function examMaterialsAllowed(email: string | undefined): boolean {
-  const allow = (process.env.EXAM_MATERIALS_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (!allow.length) {
+  const allowed = examMaterialsAllowedPure(email, process.env.EXAM_MATERIALS_EMAILS);
+  if (!allowed && !(process.env.EXAM_MATERIALS_EMAILS ?? "").trim()) {
     console.warn("[api] EXAM_MATERIALS_EMAILS not configured — exam materials are inaccessible to all users.");
-    return false;
   }
-  return !!email && allow.includes(email.toLowerCase());
+  return allowed;
 }
 
 function hfToken(): string {
