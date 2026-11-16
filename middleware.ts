@@ -10,6 +10,37 @@ const isProtected = (p: string) => PROTECTED.some((r) => r === "/" ? p === "/" :
 // address — prefer x-forwarded-host/proto, then Host, then nextUrl.
 function externalUrl(request: NextRequest, pathname: string, search?: string): URL {
   const configured = process.env.APP_PUBLIC_URL?.trim();
+  const fwdHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const rawHost = request.headers.get("host")?.trim();
+  const fwdProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = (fwdProto || request.nextUrl.protocol.replace(":", "")) + ":";
+
+  // Tailnet clients (direct to the node, no proxy in front) must stay on the
+  // origin they dialled, otherwise a redirect would bounce them to the public
+  // Funnel host. Funnel always arrives on :443 with the configured host; a
+  // direct client uses an explicit port instead (tailnet :3000). Only trust
+  // the request's own Host in that case — never redirect off-host otherwise.
+  let configuredHost = "";
+  if (configured) {
+    try {
+      configuredHost = new URL(configured).host.toLowerCase();
+    } catch {
+      configuredHost = "";
+    }
+  }
+  const rawHostNo443 = (rawHost ?? "").replace(/:443$/, "").toLowerCase();
+  const isTailnetDirect =
+    !!rawHost && rawHostNo443 !== configuredHost;
+  if (isTailnetDirect) {
+    const url = request.nextUrl.clone();
+    url.protocol = protocol;
+    url.host = rawHost;
+    url.pathname = pathname;
+    url.search = search ?? "";
+    url.hash = "";
+    return url;
+  }
+
   if (configured) {
     try {
       const u = new URL(configured);
@@ -21,10 +52,7 @@ function externalUrl(request: NextRequest, pathname: string, search?: string): U
       // fall through to header-derived origin
     }
   }
-  const fwdHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = fwdHost || request.headers.get("host")?.trim() || request.nextUrl.host;
-  const fwdProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const protocol = (fwdProto || request.nextUrl.protocol.replace(":", "")) + ":";
+  const host = fwdHost || rawHost || request.nextUrl.host;
   const url = request.nextUrl.clone();
   url.protocol = protocol;
   url.host = host;
