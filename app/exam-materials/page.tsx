@@ -25,7 +25,8 @@ export default function ExamMaterialsPage() {
           <li>AQA GCSE — <strong>6,827</strong> PDFs (papers, mark schemes, examiner reports, candidate materials)</li>
           <li>OCR GCSE — <strong>3,369</strong> PDFs (papers, mark schemes, examiner reports)</li>
           <li>CCEA GCSE — <strong>4,586</strong> PDFs plus <strong>58</strong> MP3/ZIP assets</li>
-          <li>Pearson Edexcel GCSE — <strong>2,747</strong> files (papers, mark schemes, examiner reports, listening audio) across the ten most-studied subjects</li>
+          <li>Pearson Edexcel GCSE — <strong>3,600+</strong> files across the ten most-studied subjects, including Spanish, French and German</li>
+          <li>WJEC &amp; Eduqas — examiner reports, sample assessment materials and guidance (their question papers and mark schemes are released only to registered exam centres)</li>
           <li>WJEC GCSE — <strong>1,892</strong> PDFs (papers, mark schemes, examiner reports)</li>
           <li>Eduqas GCSE — <strong>1,543</strong> PDFs (papers, mark schemes, examiner reports)</li>
         </ul>

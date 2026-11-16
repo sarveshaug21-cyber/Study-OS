@@ -9,6 +9,11 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
+      # Tailnet-only access (not reachable from the public internet): a direct
+      # path for phones on the Tailscale network, avoiding the shared Funnel
+      # ingress IPs that some mobile networks reset. Pi-hole owns local :443 on
+      # this host, so tailnet clients use plain HTTP on the tailnet IP.
+      - "100.84.33.57:3000:3000"
     env_file:
       - path: .env.local
         required: false
